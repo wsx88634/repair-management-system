@@ -137,14 +137,14 @@
             <!-- 主看板區域 -->
             <div class="overflow-x-auto pb-6 custom-scrollbar">
                 <div id="kanban-board" class="min-w-[1200px] flex flex-col gap-5 p-4 rounded-xl bg-[#F8FAFC]">
-                    <div class="grid grid-cols-[140px_repeat(6,minmax(180px,1fr))] gap-4">
-                        <div></div> 
+                    <div class="gap-4" style="display: grid; grid-template-columns: 140px repeat(6, minmax(180px, 1fr)); gap: 1rem;">
+                        <div class="w-[140px] min-w-[140px] shrink-0"></div> 
                         <div v-for="status in statuses" :key="status" class="text-center font-bold text-slate-500 uppercase tracking-wider pb-3 text-sm">
                             <div class="bg-white border border-slate-200 rounded-lg py-2 shadow-sm">{{ status }}</div>
                         </div>
                     </div>
 
-                    <div v-for="engineer in engineers" :key="engineer" class="grid grid-cols-[140px_repeat(6,minmax(180px,1fr))] gap-4 min-h-[160px]">
+                    <div v-for="engineer in engineers" :key="engineer" class="gap-4 min-h-[160px]" style="display: grid; grid-template-columns: 140px repeat(6, minmax(180px, 1fr)); gap: 1rem;">
                         <div class="bg-slate-800 text-white rounded-2xl shadow-md flex items-center justify-center p-4 break-words relative overflow-hidden group">
                             <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <h2 class="text-xl font-bold text-center leading-relaxed whitespace-pre-wrap tracking-wide z-10">{{ engineer }}</h2>
