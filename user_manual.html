@@ -90,7 +90,7 @@
                     <span class="font-bold text-amber-900">📥 待指派放置區：</span>未指定工程師的案件會暫存於此，可以隨時以<b>滑鼠拖拉卡片</b>至下方工程師欄位中完成派單。
                 </div>
                 <div class="bg-purple-50 border border-purple-200 p-2.5 rounded-xl">
-                    <span class="font-bold text-purple-900">📊 報價進度追蹤區：</span>當單據狀態轉為「報價」時會自動進入此專區，可一鍵切換狀態：
+                    <span class="font-bold text-purple-900">📊 報價進度追蹤區：</span>當單據狀態轉為「報價」時會自動系統帶入，可一鍵切換狀態：
                     <span class="font-bold text-red-700 ml-1">未報價</span> ➔ 
                     <span class="font-bold text-amber-700">已報價</span> ➔ 
                     <span class="font-bold text-blue-700">同意報價</span>。
@@ -138,13 +138,17 @@
 
     <!-- 第二頁內容 (5~6點，加入 force-page-break 強制換頁) -->
     <div class="force-page-break avoid-break pt-2">
-        <!-- 5. 詳細資訊 Modal & 圖片上傳 -->
+        <!-- 5. 詳細資訊 Modal & 圖片上傳 (新增 ⚡ 快捷行動說明) -->
         <div class="mb-5">
             <h2 class="text-sm font-bold text-blue-900 border-l-4 border-blue-600 pl-2 mb-2">
-                5. 單據詳細編輯與現場圖片上傳
+                5. 單據詳細編輯與現場圖片上傳 (含快捷撥號導航)
             </h2>
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs leading-relaxed space-y-2">
-                <div>• <b>編輯資訊</b>：點擊看板卡片可開啟彈出視窗，更新客戶、機型、完成日期與備註細節。</div>
+                <div class="bg-blue-50 border border-blue-100 p-2.5 rounded-lg text-blue-900 font-bold flex items-center gap-1.5">
+                    <span>⚡ 現場工程師快捷行動：</span>
+                    <span class="font-normal text-slate-700">彈出視窗最上方固定設有綠色「撥打電話」與藍色「地圖導航」鈕，現場工程師點開單據即可一鍵直撥電話或自動開啟 Google 地圖進行導航。</span>
+                </div>
+                <div>• <b>編輯單據資訊</b>：點擊看板卡片開啟彈出視窗，更新客戶、機型、完成日期與備註細節。</div>
                 <div>• <b>上傳現場照片</b>：點擊 `☁️ 上傳圖片` 可上傳門市故障照片或報價單（因雲端容量限制，每單限上傳 1 張照片，系統會自動壓縮解像度）。</div>
                 <div>• <b>封存與刪除</b>：完修單據可點擊 `📦 封存單據` 隱藏或點擊 `🗑️ 完全刪除` 永久移除。</div>
             </div>
@@ -158,11 +162,11 @@
             <div class="grid grid-cols-3 gap-3 text-slate-600">
                 <div class="bg-white p-3 rounded-lg border border-slate-200">
                     <div class="font-bold text-slate-800 mb-1">🔍 歷史複查</div>
-                    <div>輸入門市關鍵字或機型，可檢視累積叫修次數與完修達成率。</div>
+                    <div>輸入門市關鍵字或機型，可檢視累積叫修次數與完修達成率，電話與地址支援一鍵撥號導航。</div>
                 </div>
                 <div class="bg-white p-3 rounded-lg border border-slate-200">
                     <div class="font-bold text-slate-800 mb-1">📥 匯出報表</div>
-                    <div>輸入<u>授權密碼</u>後，可依日期區間匯出 CSV 報表檔。</div>
+                    <div>輸入<u>授權密碼</u>後，可依日期區間匯出全欄位 CSV 報表檔。</div>
                 </div>
                 <div class="bg-white p-3 rounded-lg border border-slate-200">
                     <div class="font-bold text-slate-800 mb-1">📷 擷取看板</div>
