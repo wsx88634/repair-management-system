@@ -555,6 +555,40 @@
 
                 <!-- Body (與圖片 100% 對齊) -->
                 <div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                    <!-- ⚡ 現場工程師快捷行動 (放在 Body 最上方，與工程師版本完全一致) -->
+                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                        <div class="space-y-1">
+                            <div class="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                <l-icon name="zap" class="w-4 h-4 text-amber-500 fill-amber-500"></l-icon>
+                                <span>現場工程師快捷行動</span>
+                            </div>
+                            <div class="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                                <span>👤 {{ parseDetails(editData.details).contact || editData.customer }}</span>
+                                <span v-if="parseDetails(editData.details).phone" class="text-xs font-semibold text-slate-500">
+                                    📞 號碼：{{ parseDetails(editData.details).phone }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <!-- 撥號按鈕 -->
+                            <a v-if="parseDetails(editData.details).phone" :href="'tel:' + parseDetails(editData.details).phone" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95">
+                                <l-icon name="phone-call" class="w-3.5 h-3.5"></l-icon> 撥打電話
+                            </a>
+                            <span v-else class="flex-1 sm:flex-none text-xs font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 inline-flex items-center justify-center gap-1">
+                                <l-icon name="phone-off" class="w-3.5 h-3.5"></l-icon> 備註無電話
+                            </span>
+
+                            <!-- 導航按鈕 -->
+                            <a v-if="parseDetails(editData.details).address" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parseDetails(editData.details).address)" target="_blank" class="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95" :title="'導航地址: ' + parseDetails(editData.details).address">
+                                <l-icon name="navigation" class="w-3.5 h-3.5"></l-icon> 地圖導航
+                            </a>
+                            <a v-else-if="editData.customer" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(editData.customer)" target="_blank" class="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95" :title="'搜尋門市: ' + editData.customer">
+                                <l-icon name="search" class="w-3.5 h-3.5"></l-icon> 搜尋門市導航
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Row 1: 客戶名稱 (50%) & 機型 (50%) -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
@@ -611,38 +645,7 @@
                         </div>
                     </div>
 
-                    <!-- ⚡ 快捷行動區塊 (一鍵通話與地圖導航，永久固定顯示) -->
-                    <div class="bg-gradient-to-r from-emerald-50 via-sky-50 to-blue-50 border border-slate-200/90 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-                        <div class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                            <div class="p-1 bg-amber-100 rounded-md">
-                                <l-icon name="zap" class="w-4 h-4 text-amber-600 fill-amber-500"></l-icon>
-                            </div>
-                            <div>
-                                <div class="font-bold text-slate-800">⚡ 快捷行動卡片</div>
-                                <div class="text-[11px] text-slate-500 font-normal">現場工程師與內勤快速通話 / Google 地圖導航</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
-                            <!-- 撥號按鈕 -->
-                            <a v-if="parseDetails(editData.details).phone" :href="'tel:' + parseDetails(editData.details).phone" class="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex-1 sm:flex-none">
-                                <l-icon name="phone-call" class="w-3.5 h-3.5"></l-icon>
-                                撥號 ({{ parseDetails(editData.details).phone }})
-                            </a>
-                            <span v-else class="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 inline-flex items-center gap-1">
-                                <l-icon name="phone-off" class="w-3.5 h-3.5"></l-icon> 備註無電話
-                            </span>
 
-                            <!-- 導航按鈕 -->
-                            <a v-if="parseDetails(editData.details).address" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parseDetails(editData.details).address)" target="_blank" class="inline-flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-sky-600/20 transition-all active:scale-95 flex-1 sm:flex-none" :title="'導航地址: ' + parseDetails(editData.details).address">
-                                <l-icon name="navigation" class="w-3.5 h-3.5"></l-icon>
-                                Google 地圖導航
-                            </a>
-                            <a v-else-if="editData.customer" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(editData.customer)" target="_blank" class="inline-flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-sky-600/20 transition-all active:scale-95 flex-1 sm:flex-none" :title="'搜尋門市: ' + editData.customer">
-                                <l-icon name="search" class="w-3.5 h-3.5"></l-icon>
-                                導航搜尋「{{ editData.customer }}」
-                            </a>
-                        </div>
-                    </div>
 
                     <!-- 附件圖片 (報價單、故障照片等) -->
                     <div class="space-y-3">
