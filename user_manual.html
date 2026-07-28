@@ -7,7 +7,7 @@
     <style>
         @page {
             size: A4;
-            margin: 15mm;
+            margin: 12mm;
         }
         body {
             font-family: 'Microsoft JhengHei', '微軟正黑體', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -42,7 +42,7 @@
         <h2 class="text-base font-bold text-blue-900 border-l-4 border-blue-600 pl-2 mb-2">
             1. 頂部工具列與雲端狀態
         </h2>
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs space-y-1.5 leading-relaxed">
             <div>• <b>連線狀態標籤</b>：顯示 <span class="text-emerald-700 font-bold">🟢 GAS API 已連線</span> 表示與雲端資料庫同步中；如顯示 <span class="text-amber-700 font-bold">🟡 本地體驗模式</span> 表示離線本機儲存。</div>
             <div>• <b>後端 API 設定</b>：點擊後需輸入<u>管理者防護密碼</u>以維護連線網址。</div>
             <div>• <b>一鍵封存結案</b>：自動掃描看板上所有已「完修」或「取消叫修」的單據，批次歸檔至歷史庫。</div>
@@ -56,15 +56,15 @@
             2. 新增派單作業 (內勤客服流程)
         </h2>
         <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="bg-white border border-slate-200 p-3 rounded-xl">
+            <div class="bg-white border border-slate-200 p-3.5 rounded-xl">
                 <div class="font-bold text-slate-800 mb-1">Step 1: 填寫基本資料</div>
                 <p class="text-slate-600">設定「報修日期」、客戶門市名稱（如：全家-葵爾特店）與設備機型（如：Rational 蒸烤箱、Dalla Corte 咖啡機）。</p>
             </div>
-            <div class="bg-white border border-slate-200 p-3 rounded-xl">
+            <div class="bg-white border border-slate-200 p-3.5 rounded-xl">
                 <div class="font-bold text-slate-800 mb-1">Step 2: 選擇工程師與時效</div>
                 <p class="text-slate-600">可指定負責工程師；若尚未確定則選<b>「未指派」</b>（進入待指派區），並設定 SLA 要求時效天數。</p>
             </div>
-            <div class="col-span-2 bg-white border border-slate-200 p-3 rounded-xl">
+            <div class="col-span-2 bg-white border border-slate-200 p-3.5 rounded-xl">
                 <div class="font-bold text-slate-800 mb-1">Step 3: 輸入備註細節與建立</div>
                 <p class="text-slate-600">填入詳細聯絡人、電話、門市地址與故障狀況，點擊 <b>`＋ 建立派單`</b> 即可發送至看板。</p>
             </div>
@@ -76,11 +76,11 @@
         <h2 class="text-base font-bold text-blue-900 border-l-4 border-blue-600 pl-2 mb-2">
             3. 待指派區 & 報價追蹤專區
         </h2>
-        <div class="space-y-2 text-xs">
-            <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl">
+        <div class="space-y-2.5 text-xs">
+            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl">
                 <span class="font-bold text-amber-900">📥 待指派放置區：</span>未指定工程師的案件會暫存於此，可以隨時以<b>滑鼠拖拉卡片</b>至下方工程師欄位中完成派單。
             </div>
-            <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl">
+            <div class="bg-purple-50 border border-purple-200 p-3.5 rounded-xl">
                 <span class="font-bold text-purple-900">📊 報價進度追蹤區：</span>當單據狀態轉為「報價」時會自動進入此專區，可一鍵切換狀態：
                 <span class="font-bold text-red-700 ml-1">未報價</span> ➔ 
                 <span class="font-bold text-amber-700">已報價</span> ➔ 
@@ -97,41 +97,41 @@
         <table class="w-full text-left text-xs border-collapse border border-slate-200 rounded-xl overflow-hidden">
             <thead>
                 <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                    <th class="p-2 border-r border-slate-200 w-1/4">維修階段</th>
-                    <th class="p-2">適用現場狀況與使用時機</th>
+                    <th class="p-2.5 border-r border-slate-200 w-1/4">維修階段</th>
+                    <th class="p-2.5">適用現場狀況與使用時機</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-200 text-slate-600">
                 <tr>
-                    <td class="p-2 border-r border-slate-200 font-bold text-red-700 bg-red-50/50">1. 未執行</td>
-                    <td class="p-2">剛剛指派給工程師、尚未出勤排修的初始案件。</td>
+                    <td class="p-2.5 border-r border-slate-200 font-bold text-red-700 bg-red-50/50">1. 未執行</td>
+                    <td class="p-2.5">剛剛指派給工程師、尚未出勤排修的初始案件。</td>
                 </tr>
                 <tr>
-                    <td class="p-2 border-r border-slate-200 font-bold text-purple-700 bg-purple-50/50">2. 未完成 / 另約時間</td>
-                    <td class="p-2">門市用餐高峰無法維修、需另約空檔，或等待原廠零件到貨時切換。</td>
+                    <td class="p-2.5 border-r border-slate-200 font-bold text-purple-700 bg-purple-50/50">2. 未完成 / 另約時間</td>
+                    <td class="p-2.5">門市用餐高峰無法維修、需另約空檔，或等待原廠零件到貨時切換。</td>
                 </tr>
                 <tr>
-                    <td class="p-2 border-r border-slate-200 font-bold text-amber-700 bg-amber-50/50">3. 報價</td>
-                    <td class="p-2">需評估高單價零件（如加熱基板、泵頭）與工資，等待客戶回覆同意。</td>
+                    <td class="p-2.5 border-r border-slate-200 font-bold text-amber-700 bg-amber-50/50">3. 報價</td>
+                    <td class="p-2.5">需評估高單價零件（如加熱基板、泵頭）與工資，等待客戶回覆同意。</td>
                 </tr>
                 <tr>
-                    <td class="p-2 border-r border-slate-200 font-bold text-emerald-700 bg-emerald-50/50">4. 完修</td>
-                    <td class="p-2">現場維修測試正常、完工交機。</td>
+                    <td class="p-2.5 border-r border-slate-200 font-bold text-emerald-700 bg-emerald-50/50">4. 完修</td>
+                    <td class="p-2.5">現場維修測試正常、完工交機。</td>
                 </tr>
                 <tr>
-                    <td class="p-2 border-r border-slate-200 font-bold text-slate-600 bg-slate-100">5. 取消叫修</td>
-                    <td class="p-2">客戶門市自行排除故障或重複叫修撤單。</td>
+                    <td class="p-2.5 border-r border-slate-200 font-bold text-slate-600 bg-slate-100">5. 取消叫修</td>
+                    <td class="p-2.5">客戶門市自行排除故障或重複叫修撤單。</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <!-- 5. 詳細資訊 Modal & 圖片上傳 -->
-    <div class="mb-6">
-        <h2 class="text-base font-bold text-blue-900 border-l-4 border-blue-600 pl-2 mb-2">
+    <!-- 5. 詳細資訊 Modal & 圖片上傳 (設定 page-break 強制整區換頁至下一頁) -->
+    <div class="mb-6 page-break pt-4">
+        <h2 class="text-base font-bold text-blue-900 border-l-4 border-blue-600 pl-2 mb-3">
             5. 單據詳細編輯與現場圖片上傳
         </h2>
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs leading-relaxed space-y-1">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs leading-relaxed space-y-2">
             <div>• <b>編輯資訊</b>：點擊看板卡片可開啟彈出視窗，更新客戶、機型、完成日期與備註細節。</div>
             <div>• <b>上傳現場照片</b>：點擊 `☁️ 上傳圖片` 可上傳門市故障照片或報價單（因雲端容量限制，每單限上傳 1 張照片，系統會自動壓縮解像度）。</div>
             <div>• <b>封存與刪除</b>：完修單據可點擊 `📦 封存單據` 隱藏或點擊 `🗑️ 完全刪除` 永久移除。</div>
@@ -139,14 +139,23 @@
     </div>
 
     <!-- 6. 歷史複查與資料匯出 -->
-    <div class="bg-slate-100 border border-slate-300 rounded-xl p-4 text-xs">
-        <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-1">
+    <div class="bg-slate-100 border border-slate-300 rounded-xl p-5 text-xs">
+        <h3 class="font-bold text-slate-800 mb-2 text-sm flex items-center gap-1">
             📊 歷史複查、報表匯出與螢幕擷取
         </h3>
-        <div class="grid grid-cols-3 gap-3 text-slate-600 mt-2">
-            <div><b>🔍 歷史複查：</b>輸入門市關鍵字或機型，可檢視累積叫修次數與完修達成率。</div>
-            <div><b>📥 匯出報表：</b>輸入<u>授權密碼</u>後，可依日期區間匯出 CSV 報表檔。</div>
-            <div><b>📷 擷取看板：</b>點擊相機圖示，可將看板轉為高畫質 JPG 圖片下載回報。</div>
+        <div class="grid grid-cols-3 gap-4 text-slate-600">
+            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                <div class="font-bold text-slate-800 mb-1">🔍 歷史複查</div>
+                <div>輸入門市關鍵字或機型，可檢視累積叫修次數與完修達成率。</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                <div class="font-bold text-slate-800 mb-1">📥 匯出報表</div>
+                <div>輸入<u>授權密碼</u>後，可依日期區間匯出 CSV 報表檔。</div>
+            </div>
+            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                <div class="font-bold text-slate-800 mb-1">📷 擷取看板</div>
+                <div>點擊相機圖示，可將看板轉為高畫質 JPG 圖片下載回報。</div>
+            </div>
         </div>
     </div>
 
