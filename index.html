@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>叫修輔助管理系統 - 智慧單據追蹤平台</title>
+  <!-- Google Fonts & FontAwesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 頂部導覽列 -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-wrench"></i>
+      </div>
+      <div>
+        <div class="brand-title">叫修輔助管理系統</div>
+        <div class="brand-subtitle">Smart Repair Assistant System</div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <div class="api-status-badge" id="apiStatusBadge">
+        <div class="status-dot mock" id="statusDot"></div>
+        <span id="statusText">離線 / 本地模擬</span>
+      </div>
+      <button class="btn btn-outline" id="openSettingsBtn">
+        <i class="fa-solid fa-gear"></i> 後端設定
+      </button>
+      <button class="btn btn-primary" id="openCreateModalBtn">
+        <i class="fa-solid fa-plus"></i> 我要報修
+      </button>
+    </div>
+  </header>
+
+  <!-- 主要內容區 -->
+  <main class="main-container">
+    
+    <!-- 統計指標卡片 -->
+    <section class="stats-grid">
+      <div class="stat-card total">
+        <div class="stat-info">
+          <div class="stat-label">總叫修單據</div>
+          <div class="stat-value" id="statTotal">0</div>
+        </div>
+        <div class="stat-icon-wrapper">
+          <i class="fa-solid fa-clipboard-list"></i>
+        </div>
+      </div>
+
+      <div class="stat-card pending">
+        <div class="stat-info">
+          <div class="stat-label">待處理叫修</div>
+          <div class="stat-value" id="statPending">0</div>
+        </div>
+        <div class="stat-icon-wrapper">
+          <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+      </div>
+
+      <div class="stat-card progress">
+        <div class="stat-info">
+          <div class="stat-label">處理中叫修</div>
+          <div class="stat-value" id="statProgress">0</div>
+        </div>
+        <div class="stat-icon-wrapper">
+          <i class="fa-solid fa-person-digging"></i>
+        </div>
+      </div>
+
+      <div class="stat-card completed">
+        <div class="stat-info">
+          <div class="stat-label">已完成維修</div>
+          <div class="stat-value" id="statCompleted">0</div>
+        </div>
+        <div class="stat-icon-wrapper">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- 控制與搜尋篩選列 -->
+    <section class="action-bar">
+      <div class="search-filter-group">
+        <div class="search-input-wrapper">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="searchInput" class="form-control" placeholder="搜尋報修單號、報修人、設備或地點...">
+        </div>
+
+        <select id="categoryFilter" class="form-control" style="max-width: 160px;">
+          <option value="ALL">所有設備類別</option>
+          <option value="電腦資訊">電腦資訊</option>
+          <option value="水電空調">水電空調</option>
+          <option value="辦公設備">辦公設備</option>
+          <option value="廠房機具">廠房機具</option>
+          <option value="其他">其他</option>
+        </select>
+
+        <select id="statusFilter" class="form-control" style="max-width: 150px;">
+          <option value="ALL">所有狀態</option>
+          <option value="待處理">待處理</option>
+          <option value="處理中">處理中</option>
+          <option value="已完成">已完成</option>
+          <option value="已取消">已取消</option>
+        </select>
+      </div>
+
+      <div>
+        <button class="btn btn-outline" id="refreshBtn">
+          <i class="fa-solid fa-rotate-right"></i> 重新同步
+        </button>
+      </div>
+    </section>
+
+    <!-- 叫修單據列表看板 -->
+    <section class="ticket-grid" id="ticketGrid">
+      <!-- 動態載入單據卡片 -->
+    </section>
+
+  </main>
+
+  <!-- Modal：新增叫修單 -->
+  <div class="modal-backdrop" id="createModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fa-solid fa-plus-circle text-blue"></i> 填寫叫修單據</div>
+        <button class="modal-close" id="closeCreateModalBtn">&times;</button>
+      </div>
+      <form id="createTicketForm">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reporterInput">報修人姓名 *</label>
+              <input type="text" id="reporterInput" class="form-control" placeholder="例：張小明" required>
+            </div>
+            <div class="form-group">
+              <label for="phoneInput">聯絡電話 *</label>
+              <input type="tel" id="phoneInput" class="form-control" placeholder="例：0912-345-678" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="locationInput">所屬部門 / 故障地點 *</label>
+              <input type="text" id="locationInput" class="form-control" placeholder="例：3F 總務課 / A3 會議室" required>
+            </div>
+            <div class="form-group">
+              <label for="categorySelect">設備類別 *</label>
+              <select id="categorySelect" class="form-control" required>
+                <option value="電腦資訊">電腦資訊</option>
+                <option value="水電空調">水電空調</option>
+                <option value="辦公設備">辦公設備</option>
+                <option value="廠房機具">廠房機具</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="deviceInput">設備名稱 / 編號</label>
+              <input type="text" id="deviceInput" class="form-control" placeholder="例：HP 印表機 #02">
+            </div>
+            <div class="form-group">
+              <label for="prioritySelect">緊急程度 *</label>
+              <select id="prioritySelect" class="form-control" required>
+                <option value="低">🟢 低 (不影響正常工作)</option>
+                <option value="中" selected>🟡 中 (需在1-2日內處理)</option>
+                <option value="高">🔴 高 (急需立即處理)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="descriptionInput">故障狀況描述 *</label>
+            <textarea id="descriptionInput" class="form-control" placeholder="請詳細說明設備異常狀況或故障現象..." required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="cancelCreateBtn">取消</button>
+          <button type="submit" class="btn btn-primary" id="submitTicketBtn">
+            <i class="fa-solid fa-paper-plane"></i> 提交叫修單
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal：後端系統設定 (GAS Web App) -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title"><i class="fa-solid fa-sliders"></i> Apps Script 後端連線設定</div>
+        <button class="modal-close" id="closeSettingsModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">
+          填入您部署好的 Google Apps Script 網頁應用程式網址，系統即可即時與您的 Google 試算表同步資料，徹底排除多帳號 HTML 衝突！
+        </p>
+
+        <div class="form-group">
+          <label for="apiUrlInput">Apps Script Web App 網址</label>
+          <input type="url" id="apiUrlInput" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #93c5fd;">
+          <i class="fa-solid fa-circle-info"></i> 💡 部署提示：請務必在 GAS 選擇 **Execute as: Me** 與 **Who has access: Anyone**。詳細圖文步驟可參考專案資料夾內的 <code>gas/README.md</code>。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="clearSettingsBtn">清空網址 (切回 Mock 模式)</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+          <i class="fa-solid fa-floppy-disk"></i> 測試並儲存連線
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
