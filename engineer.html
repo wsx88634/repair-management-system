@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叫修輔助管理系統 - 工程師看板</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- html2canvas 擷取看板功能 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .input-style {
+                @apply bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 focus:bg-white block w-full p-2.5 outline-none transition-all duration-200 shadow-sm;
+            }
+            .label-style {
+                @apply text-xs font-bold text-slate-500 ml-1 tracking-wide block mb-1.5;
+            }
+        }
+    </style>
+
+    <style>
+        body { 
+            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif !important; 
+        }
+        [v-cloak] { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+    </style>
+</head>
+<body class="bg-[#F8FAFC] text-slate-800 antialiased selection:bg-blue-200 selection:text-blue-900">
+    <div id="app" v-cloak class="min-h-screen p-4 md:p-6 lg:p-8">
+        <div class="max-w-[1400px] mx-auto space-y-6">
+            
+            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <div class="bg-blue-100 p-2 rounded-lg">
+                            <l-icon name="user-check" class="text-blue-600 w-6 h-6"></l-icon>
+                        </div>
+                        叫修看板 (工程師版)
+                        <span v-if="isLoading" class="text-xs font-medium text-blue-500 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1.5 animate-pulse ml-2 border border-blue-100">
+                            <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
+                        </span>
+                    </h1>
+                    <div class="flex flex-wrap gap-3">
+                        <button @click="fetchData(false)" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                            <l-icon name="refresh-cw" class="w-4 h-4"></l-icon> 重新整理
+                        </button>
+                        <button @click="openSearchModal" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-sky-600/20">
+                            <l-icon name="search" class="w-4 h-4"></l-icon> 歷史複查
+                        </button>
+                        <button @click="captureBoard" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-indigo-600/20">
+                            <l-icon name="camera" class="w-4 h-4"></l-icon> 擷取看板
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 待指派放置區 -->
+            <div id="unassigned-section" class="bg-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 shadow-inner transition-all duration-300" @dragover.prevent @drop="onDrop($event, '未指派', '未執行')">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-600 flex items-center gap-2">
+                        <div class="bg-white p-1.5 rounded-lg shadow-sm">
+                            <l-icon name="inbox" class="text-amber-500 w-5 h-5"></l-icon>
+                        </div>
+                        待指派放置區 (未指派派單)
+                        <span class="text-xs font-bold text-slate-700 bg-amber-200 px-2.5 py-0.5 rounded-full shadow-sm ml-2">{{ unassignedTickets.length }} 筆</span>
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-400 font-semibold hidden md:inline flex items-center gap-1">
+                            <l-icon name="arrow-down-narrow-wide" class="w-4 h-4 text-amber-500"></l-icon> 按日期先後排序
+                        </span>
+                        <button @click="isUnassignedExpanded = !isUnassignedExpanded" class="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors">
+                            {{ isUnassignedExpanded ? '收合' : '展開' }}
+                            <l-icon name="chevron-down" class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-180': !isUnassignedExpanded }"></l-icon>
+                        </button>
+                    </div>
+                </div>
+                
+                <div v-show="!isUnassignedExpanded" class="p-3 bg-white/60 border border-slate-200 rounded-xl text-center text-sm font-medium text-slate-500 cursor-pointer hover:bg-white transition-colors" @click="isUnassignedExpanded = true">
+                    📂 已收合待指派區，目前共有 <span class="text-amber-600 font-bold">{{ unassignedTickets.length }}</span> 筆未指派派單 (點擊此處展開)
+                </div>
+
+                <div v-show="isUnassignedExpanded" class="flex flex-col gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar transition-all capture-container">
+                    <div 
+                        v-for="ticket in unassignedTickets" 
+                        :key="ticket.id"
+                        draggable="true"
+                        @dragstart="onDragStart($event, ticket.id)"
+                        @click="openTicketModal(ticket)"
+                        class="relative p-3 rounded-xl shadow-sm border border-amber-200 bg-white cursor-pointer active:cursor-grabbing transition-all hover:shadow-md hover:-translate-y-0.5 group flex items-center justify-between w-full gap-4"
+                    >
+                        <div class="flex flex-1 items-center gap-4 min-w-0">
+                            <div class="flex items-center gap-1.5 shrink-0 text-sm w-[110px]" :class="isOverdue(ticket) ? 'text-red-600 font-black tracking-wide' : 'text-slate-500 font-medium'">
+                                <l-icon name="calendar" class="w-4 h-4 shrink-0"></l-icon>
+                                <span>{{ ticket.reportTime }}</span>
+                            </div>
+                            <div class="font-bold text-slate-800 truncate text-base flex-1" :title="ticket.customer">{{ ticket.customer }}</div>
+                            <div class="text-sm text-slate-600 truncate flex-1 font-medium" :title="ticket.model">
+                                <span class="text-slate-400 mr-1 text-xs">機型:</span>{{ ticket.model || "未填寫" }}
+                            </div>
+                            <div v-if="ticket.attachments && ticket.attachments.length > 0" class="shrink-0 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <l-icon name="paperclip" class="w-3.5 h-3.5"></l-icon> {{ ticket.attachments.length }}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 shrink-0">
+                            <div v-if="isOverdue(ticket)" class="bg-red-100 text-red-600 px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+                                <l-icon name="alert-triangle" class="w-3.5 h-3.5 text-red-500"></l-icon>
+                                <span>已超時</span>
+                            </div>
+                            <div class="text-slate-300 opacity-50 group-hover:opacity-100 transition-opacity">
+                                <l-icon name="grip-horizontal" class="w-4 h-4 text-slate-400"></l-icon>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="unassignedTickets.length === 0" class="flex flex-col items-center justify-center w-full h-[140px] rounded-xl text-slate-400 bg-white/50 border border-slate-200 border-dashed">
+                        <l-icon name="check-circle" class="w-6 h-6 mb-2 text-slate-400 opacity-60"></l-icon>
+                        <p class="text-sm font-semibold">目前無待指派的派單</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主看板區域 -->
+            <div class="overflow-x-auto pb-6 custom-scrollbar">
+                <div id="kanban-board" class="min-w-[1200px] flex flex-col gap-5 p-4 rounded-xl bg-[#F8FAFC]">
+                    <div class="grid grid-cols-[140px_repeat(6,minmax(180px,1fr))] gap-4">
+                        <div></div> 
+                        <div v-for="status in statuses" :key="status" class="text-center font-bold text-slate-500 uppercase tracking-wider pb-3 text-sm">
+                            <div class="bg-white border border-slate-200 rounded-lg py-2 shadow-sm">{{ status }}</div>
+                        </div>
+                    </div>
+
+                    <div v-for="engineer in engineers" :key="engineer" class="grid grid-cols-[140px_repeat(6,minmax(180px,1fr))] gap-4 min-h-[160px]">
+                        <div class="bg-slate-800 text-white rounded-2xl shadow-md flex items-center justify-center p-4 break-words relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <h2 class="text-xl font-bold text-center leading-relaxed whitespace-pre-wrap tracking-wide z-10">{{ engineer }}</h2>
+                        </div>
+
+                        <div v-for="status in statuses" :key="status" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 flex flex-col gap-3 transition-colors hover:bg-slate-50" @dragover.prevent @drop="onDrop($event, engineer, status)">
+                            <div 
+                                v-for="ticket in getTickets(engineer, status)" 
+                                :key="ticket.id"
+                                draggable="true"
+                                @dragstart="onDragStart($event, ticket.id)"
+                                @click="openTicketModal(ticket)"
+                                class="relative p-4 rounded-xl shadow-sm border cursor-pointer active:cursor-grabbing transition-all hover:shadow-md hover:-translate-y-1 group w-full"
+                                :class="getStatusColor(ticket)"
+                            >
+                                <div v-if="isOverdue(ticket)" class="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full shadow-lg shadow-red-500/40 animate-bounce">
+                                    <l-icon name="alert-triangle" class="w-4 h-4"></l-icon>
+                                </div>
+
+                                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-30 transition-opacity">
+                                    <l-icon name="grip-horizontal" class="w-4 h-4 text-slate-600"></l-icon>
+                                </div>
+
+                                <div class="pr-2">
+                                    <div class="font-bold text-base text-slate-800 truncate leading-tight" :title="ticket.customer">{{ ticket.customer }}</div>
+                                    <div class="text-sm text-slate-500 mt-1.5 truncate font-medium" :title="ticket.model">{{ ticket.model || "未填寫機型" }}</div>
+                                    
+                                    <div class="mt-2.5 flex items-center gap-3">
+                                        <div class="text-xs flex items-center gap-1.5 transition-colors" :class="isOverdue(ticket) ? 'text-red-600 font-black tracking-wide' : 'text-slate-400 font-medium'">
+                                            <l-icon name="calendar" class="w-3.5 h-3.5"></l-icon>
+                                            {{ ticket.reportTime }}
+                                        </div>
+                                        <div v-if="ticket.attachments && ticket.attachments.length > 0" class="text-xs font-bold text-blue-600 flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                                            <l-icon name="paperclip" class="w-3 h-3"></l-icon> {{ ticket.attachments.length }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-if="ticket.completedDate && ['報價', '完修', '取消叫修'].includes(ticket.status)" class="mt-1.5 text-xs font-bold text-red-600 tracking-wide flex items-center gap-1.5">
+                                        <l-icon name="check-circle-2" class="w-3.5 h-3.5 text-red-500"></l-icon>
+                                        完成: {{ ticket.completedDate }}
+                                    </div>
+                                    
+                                    <div v-if="ticket.status === '報價' && ticket.quoteState" class="mt-1 text-xs font-bold flex items-center gap-1.5"
+                                         :class="{
+                                            'text-red-700': ticket.quoteState === '未報價',
+                                            'text-amber-700': ticket.quoteState === '已報價',
+                                            'text-blue-700': ticket.quoteState === '同意報價'
+                                         }">
+                                        <l-icon name="file-text" class="w-3.5 h-3.5"></l-icon>
+                                        報價狀態: {{ ticket.quoteState }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 歷史紀錄搜尋彈窗 -->
+        <div v-if="showSearchModal" class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+                <div class="bg-slate-50 px-6 py-4 flex justify-between items-center border-b border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <l-icon name="search-code" class="w-5 h-5 text-sky-600"></l-icon>
+                        客戶 / 工程師 叫修歷史紀錄複查
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <button @click="closeSearchModal" class="text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-200 p-1.5 rounded-full transition-colors border border-slate-200">
+                            <l-icon name="x" class="w-5 h-5"></l-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-6 flex-1 flex flex-col gap-4 overflow-hidden bg-slate-50/50">
+                    <div class="flex gap-3">
+                        <div class="relative flex-1">
+                            <input 
+                                v-model="searchInput" 
+                                @keyup.enter="executeSearch"
+                                placeholder="輸入 客戶名稱、負責工程師、機型 或 備註 進行精準模糊搜尋..." 
+                                class="input-style pl-11 py-3.5 text-base shadow-sm border-slate-300 w-full"
+                                autofocus
+                            />
+                            <l-icon name="search" class="absolute left-4 top-4 text-slate-400 w-5 h-5"></l-icon>
+                            <button v-if="searchInput" @click="searchInput = ''; executeSearch()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors">
+                                <l-icon name="x-circle" class="w-5 h-5"></l-icon>
+                            </button>
+                        </div>
+                        <button @click="executeSearch" class="bg-sky-600 hover:bg-sky-700 text-white px-8 py-3.5 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-sky-600/20 transition-all active:scale-95">
+                            <l-icon name="search" class="w-5 h-5"></l-icon>
+                            搜尋紀錄
+                        </button>
+                    </div>
+
+                    <div class="flex items-center justify-between text-sm text-slate-500 font-bold px-1">
+                        <span v-if="activeSearchQuery" class="text-sky-700 bg-sky-100 px-3 py-1 rounded-lg flex items-center gap-1.5 border border-sky-200">
+                            <l-icon name="list-filter" class="w-4 h-4"></l-icon>
+                            目前條件：「{{ activeSearchQuery }}」共篩選出 {{ displayHistoryTickets.length }} 筆案件
+                        </span>
+                        <span v-else class="text-slate-500 bg-slate-200 px-3 py-1 rounded-lg flex items-center gap-1.5 border border-slate-300">
+                            <l-icon name="clock" class="w-4 h-4"></l-icon>
+                            系統最新 50 筆紀錄 (已包含被封存單據，使用上方搜尋可篩選)
+                        </span>
+                    </div>
+
+                    <div v-if="searchStats" class="grid grid-cols-3 gap-4">
+                        <div class="bg-white border border-sky-100 p-4 rounded-xl flex items-center gap-3 shadow-sm shadow-sky-100/50">
+                            <div class="p-2.5 bg-sky-50 text-sky-600 rounded-lg"><l-icon name="history" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-slate-500 font-bold">累積指派/叫修次數</div>
+                                <div class="text-xl font-black text-sky-900">{{ searchStats.total }} 次</div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-emerald-100 p-4 rounded-xl flex items-center gap-3 shadow-sm shadow-emerald-100/50">
+                            <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg"><l-icon name="award" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-slate-500 font-bold">完修結案達成率</div>
+                                <div class="text-xl font-black text-emerald-900">{{ searchStats.completionRate }}%</div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-amber-100 p-4 rounded-xl flex items-center gap-3 shadow-sm shadow-amber-100/50">
+                            <div class="p-2.5 bg-amber-50 text-amber-600 rounded-lg"><l-icon name="clock" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-slate-500 font-bold">平均要求時效</div>
+                                <div class="text-xl font-black text-amber-900">{{ searchStats.avgSla }} 天</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                        <div v-for="ticket in displayHistoryTickets" :key="ticket.id" class="p-4 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-all shadow-sm flex flex-col justify-between gap-3" :class="ticket.isArchived ? 'opacity-80 grayscale-[20%]' : ''">
+                            <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                                <div class="flex-1 space-y-2 min-w-0">
+                                    <div class="flex items-center flex-wrap gap-2">
+                                        <span class="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">{{ ticket.id }}</span>
+                                        <span class="text-sm font-bold text-slate-800">{{ ticket.customer }}</span>
+                                        <span class="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">機型: {{ ticket.model || '未填寫' }}</span>
+                                        <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-100 flex items-center gap-1 ml-2">
+                                            <l-icon name="user" class="w-3 h-3"></l-icon>
+                                            工程師: {{ ticket.engineer || '未指派' }}
+                                        </span>
+                                        <span v-if="ticket.attachments && ticket.attachments.length > 0" class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1 ml-1" title="該單據有夾帶附件圖片">
+                                            <l-icon name="paperclip" class="w-3 h-3"></l-icon> {{ ticket.attachments.length }} 附件
+                                        </span>
+                                        <span v-if="ticket.isArchived" class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200 flex items-center gap-1 ml-1">
+                                            <l-icon name="archive" class="w-3 h-3"></l-icon> 已封存
+                                        </span>
+                                    </div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs bg-slate-50 p-2 rounded-lg border border-slate-200/60 shadow-inner">
+                                        <div><span class="text-slate-400 font-bold">👤 聯絡人:</span> <span class="font-semibold text-slate-700">{{ parseDetails(ticket.details).contact || '---' }}</span></div>
+                                        <div><span class="text-slate-400 font-bold">📞 電話:</span> <span class="font-semibold text-slate-700">{{ parseDetails(ticket.details).phone || '---' }}</span></div>
+                                        <div><span class="text-slate-400 font-bold">🛡️ 保固:</span> <span class="font-semibold text-slate-700">{{ parseDetails(ticket.details).warranty || '---' }}</span></div>
+                                        <div class="col-span-1 md:col-span-1"><span class="text-slate-400 font-bold">📍 地點:</span> <span class="font-semibold text-slate-700 truncate inline-block max-w-[130px]" :title="parseDetails(ticket.details).address">{{ parseDetails(ticket.details).address || '---' }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="shrink-0 flex flex-row md:flex-col justify-between md:justify-center items-center md:items-end gap-2 md:border-l border-slate-200 md:pl-4 min-w-[150px]">
+                                    <span :class="getStatusColor(ticket)" class="px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-sm">
+                                        {{ ticket.status }} <span v-if="ticket.status === '報價'">({{ ticket.quoteState || '未報價' }})</span>
+                                    </span>
+                                    <div class="text-right text-xs text-slate-400 space-y-0.5 font-semibold">
+                                        <div>報修: {{ ticket.reportTime }}</div>
+                                        <div v-if="ticket.completedDate" class="text-red-600 font-bold">完工: {{ ticket.completedDate }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border-t border-slate-100 pt-2 flex flex-col items-end">
+                                <button @click="toggleNote(ticket.id)" class="text-xs text-slate-500 hover:text-blue-600 font-bold flex items-center gap-1 transition-colors bg-slate-100 hover:bg-blue-50 px-2 py-1 rounded">
+                                    <l-icon :name="isNoteOpen(ticket.id) ? 'chevron-up' : 'chevron-down'" class="w-3.5 h-3.5"></l-icon>
+                                    <span>{{ isNoteOpen(ticket.id) ? '隱藏詳細備註與附件' : '📄 展開詳細備註與附件' }}</span>
+                                </button>
+                                <div v-if="isNoteOpen(ticket.id)" class="w-full mt-2 text-xs text-slate-600 bg-amber-50/50 p-3 rounded-xl border border-amber-100/60 transition-all animate-fadeIn">
+                                    <div class="font-bold text-amber-800 flex items-center gap-1 mb-1.5 border-b border-amber-200/50 pb-1">
+                                        <l-icon name="alert-circle" class="w-3.5 h-3.5 text-amber-500"></l-icon> 完整備註細節與故障主因：
+                                    </div>
+                                    <div class="whitespace-pre-line pl-2 text-slate-700 font-medium leading-relaxed">
+                                        {{ ticket.details || "（無輸入任何詳細資訊）" }}
+                                    </div>
+                                    
+                                    <div v-if="ticket.attachments && ticket.attachments.length > 0" class="mt-4 pt-3 border-t border-amber-200/50">
+                                        <div class="font-bold text-amber-800 flex items-center gap-1 mb-2">
+                                            <l-icon name="paperclip" class="w-3.5 h-3.5 text-blue-500"></l-icon> 夾帶附件 ({{ ticket.attachments.length }})：
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <img v-for="(img, idx) in ticket.attachments" :key="idx" :src="img" 
+                                                class="w-16 h-16 object-cover rounded border border-amber-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity" 
+                                                @click="viewImage(img)" title="點擊放大觀看" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div v-if="displayHistoryTickets.length === 0" class="flex flex-col items-center justify-center py-20 text-slate-400">
+                            <l-icon name="search-x" class="w-12 h-12 mb-3 opacity-30"></l-icon>
+                            <p class="font-bold text-slate-500 text-lg">沒有找到符合「{{ activeSearchQuery }}」的任何案件</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-200">
+                    <button @click="closeSearchModal" class="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-slate-950 transition-colors shadow-md">關閉視窗</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 詳細資訊彈窗 (工程師版限制介面) -->
+        <div v-if="selectedTicket" class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200 max-h-[95vh]">
+                <div class="bg-slate-50 px-6 py-4 flex justify-between items-center border-b border-slate-200 shrink-0">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <l-icon name="file-edit" class="w-5 h-5 text-blue-600"></l-icon>
+                        派單詳細資訊
+                        <span v-if="editData.isArchived" class="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-1 rounded border border-rose-200 flex items-center gap-1 ml-2">
+                            <l-icon name="archive" class="w-3 h-3"></l-icon> 此單已封存
+                        </span>
+                    </h2>
+                    <button @click="closeTicketModal" class="text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-200 p-1.5 rounded-full transition-colors border border-slate-200">
+                        <l-icon name="x" class="w-5 h-5"></l-icon>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                        <div class="md:col-span-2">
+                            <label class="label-style">客戶名稱</label>
+                            <input v-model="editData.customer" class="input-style mt-1" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="label-style">機型</label>
+                            <input v-model="editData.model" class="input-style mt-1" />
+                        </div>
+                        
+                        <div>
+                            <label class="label-style">報修日期</label>
+                            <input v-model="editData.reportTime" type="date" class="input-style mt-1" />
+                        </div>
+                        <div>
+                            <label class="label-style text-red-600 font-bold">完成日期</label>
+                            <input v-model="editData.completedDate" type="date" class="input-style mt-1 border-red-200 focus:ring-red-500/15 focus:border-red-500" />
+                        </div>
+                        <div>
+                            <label class="label-style">當前狀態</label>
+                            <select v-model="editData.status" class="input-style mt-1 font-semibold text-blue-700 bg-blue-50/50 border-blue-200">
+                                <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+                            </select>
+                        </div>
+                        <div v-if="editData.status === '報價'">
+                            <label class="label-style text-purple-600 font-bold">報價進度</label>
+                            <select v-model="editData.quoteState" class="input-style mt-1 font-semibold text-purple-700 bg-purple-50/50 border-purple-200">
+                                <option value="未報價">未報價</option>
+                                <option value="已報價">已報價</option>
+                                <option value="同意報價">同意報價</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-style">時效(天)</label>
+                            <input v-model.number="editData.slaDays" type="number" min="1" class="input-style mt-1" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="label-style text-blue-600">* 負責工程師 (限制設定)</label>
+                        <select v-model="editData.engineer" class="input-style mt-1 appearance-none bg-slate-50 border-slate-200 font-semibold" title="只能轉回待指派或留在本人名下">
+                            <option value="未指派" class="font-bold text-amber-600">未指派 (放回待指派區交接)</option>
+                            <option v-for="eng in allowedEngineersInModal" :key="eng" :value="eng">{{ eng }}</option>
+                        </select>
+                        <p class="text-[10px] text-slate-400 mt-1.5 ml-1">工程師版權限：若要轉交案件給他人，請先將此單設為「未指派」。</p>
+                    </div>
+
+                    <div>
+                        <label class="label-style flex justify-between items-center mb-2">
+                            <span>附件圖片 (報價單、故障照片等)</span>
+                            <button type="button" @click="$refs.fileInput.click()" class="text-blue-600 hover:bg-blue-100 hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors">
+                                <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon>上傳圖片
+                            </button>
+                            <input type="file" ref="fileInput" @change="handleImageUpload" accept="image/*" class="hidden" multiple />
+                        </label>
+                        
+                        <div class="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg mb-2 flex items-start gap-1.5 border border-amber-100 leading-relaxed font-semibold">
+                            <l-icon name="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></l-icon>
+                            <span>⚠️ 因免費雲端資料庫容量限制，為避免系統當機，每筆單據最多僅限上傳 1 張圖片。</span>
+                        </div>
+                        
+                        <div v-if="editData.attachments && editData.attachments.length > 0" class="flex flex-wrap gap-3 mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-inner min-h-[90px]">
+                            <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative w-20 h-20 rounded-lg border border-slate-300 shadow-sm overflow-hidden group">
+                                <img :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300" @click="viewImage(img)" title="點擊放大觀看" />
+                                <button @click="removeAttachment(idx)" class="absolute -top-1 -right-1 bg-white text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100 p-1 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200" title="移除此附件">
+                                    <l-icon name="x" class="w-3 h-3"></l-icon>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-else class="text-xs text-slate-400 mt-1 p-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
+                            <l-icon name="image" class="w-6 h-6 opacity-40"></l-icon>
+                            <span>尚未夾帶任何附件圖片 (系統會自動壓縮圖片大小以節省空間)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="label-style">詳細備註與其他資訊</label>
+                        <textarea v-model="editData.details" rows="6" class="input-style mt-1 resize-y custom-scrollbar text-sm leading-relaxed" placeholder="聯絡人、電話、地址、詳細故障原因..."></textarea>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 px-6 py-4 flex justify-end items-center border-t border-slate-200 shrink-0">
+                    <div class="flex gap-3">
+                        <button @click="closeTicketModal" class="px-5 py-2.5 rounded-xl text-slate-600 font-semibold hover:bg-slate-200 transition-colors">取消</button>
+                        <button @click="saveTicketModal" class="bg-blue-600 text-white px-6 md:px-8 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md flex items-center gap-2">
+                            <l-icon name="save" class="w-4 h-4"></l-icon> 儲存變更
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 滿版圖片檢視器 (Lightbox) -->
+        <div v-if="viewingImage" class="fixed inset-0 bg-slate-900/90 z-[70] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity" @click="closeImageViewer">
+            <button @click="closeImageViewer" class="absolute top-4 right-4 md:top-6 md:right-6 text-white/70 hover:text-white bg-black/40 hover:bg-black/60 p-3 rounded-full backdrop-blur-md transition-all shadow-lg border border-white/10 z-[75]">
+                <l-icon name="x" class="w-6 h-6"></l-icon>
+            </button>
+            <div class="relative max-w-[95vw] max-h-[90vh] flex items-center justify-center bg-black/20 p-2 rounded-xl border border-white/10 shadow-2xl">
+                <img :src="viewingImage" class="max-w-full max-h-[85vh] object-contain rounded shadow-inner" @click.stop />
+            </div>
+        </div>
+
+        <!-- 系統警告與訊息通知彈窗 -->
+        <div v-if="confirmDialog.isOpen" class="fixed inset-0 bg-slate-900/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border border-slate-100">
+                <div class="p-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div :class="confirmDialog.isWarning ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'" class="p-2 rounded-full"><l-icon name="alert-triangle" class="w-5 h-5"></l-icon></div>
+                        <h3 class="text-lg font-bold text-slate-800">{{ confirmDialog.title }}</h3>
+                    </div>
+                    <p class="text-slate-600 whitespace-pre-line text-sm leading-relaxed ml-11">{{ confirmDialog.message }}</p>
+                </div>
+                <div class="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-100">
+                    <button @click="confirmDialog.isOpen = false" class="px-5 py-2 rounded-xl text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-colors">{{ confirmDialog.isWarning ? "我知道了" : "取消" }}</button>
+                    <button v-if="!confirmDialog.isWarning" @click="executeConfirm" class="text-white px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-md active:scale-95 animate-pulse" :class="confirmDialog.title.includes('完全') ? 'bg-rose-600 hover:bg-rose-700' : 'bg-amber-500 hover:bg-amber-600'">確認執行</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, nextTick, watch, onMounted, computed } = Vue;
+
+        const API_URL = "https://script.google.com/macros/s/AKfycbzfYZJIjZU2tsO1X5PMiqkDD7lsuJNgOcP1KfE6kn3okznCBd7Klct3sOgOZ8UpoHOsdg/exec"; 
+
+        const App = {
+            setup() {
+                const statuses = ["未執行", "執行中", "未完成 另約時間", "報價", "完修", "取消叫修"];
+                const engineers = ref([]);
+                const isLoading = ref(false);
+                const isSaving = ref(false);
+                const tickets = ref([]);
+
+                const selectedTicket = ref(null);
+                const editData = ref({});
+
+                const confirmDialog = reactive({
+                    isOpen: false, title: '', message: '', onConfirm: null, isWarning: false
+                });
+
+                const isUnassignedExpanded = ref(true);
+
+                const showSearchModal = ref(false);
+                const searchInput = ref(''); 
+                const activeSearchQuery = ref(''); 
+                const openNotes = ref(new Set()); 
+                
+                const viewingImage = ref(null);
+
+                const extractField = (text, regex) => {
+                    if (!text) return '';
+                    const match = text.match(regex);
+                    return match ? match[1].trim().replace(/,/g, '，') : '';
+                };
+
+                const parseDetails = (details) => {
+                    return {
+                        contact: extractField(details, /(?:聯絡人|聯絡|姓名)[：:\s]*([^\n]+)/),
+                        phone: extractField(details, /(?:電話|手機|聯絡方式)[：:\s]*([^\n]+)/),
+                        address: extractField(details, /(?:地址|地點)[：:\s]*([^\n]+)/),
+                        warranty: extractField(details, /(?:保固狀態|保固)[：:\s]*([^\n]+)/),
+                        issue: extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/)
+                    };
+                };
+
+                const toggleNote = (id) => {
+                    if (openNotes.value.has(id)) {
+                        openNotes.value.delete(id);
+                    } else {
+                        openNotes.value.add(id);
+                    }
+                };
+                const isNoteOpen = (id) => openNotes.value.has(id);
+
+                const openSearchModal = () => {
+                    searchInput.value = '';
+                    activeSearchQuery.value = '';
+                    openNotes.value.clear(); 
+                    showSearchModal.value = true;
+                };
+
+                const closeSearchModal = () => { showSearchModal.value = false; };
+                const executeSearch = () => {
+                    activeSearchQuery.value = searchInput.value.trim();
+                };
+
+                const displayHistoryTickets = computed(() => {
+                    const query = activeSearchQuery.value.toLowerCase();
+                    let results = [...tickets.value];
+                    
+                    if (query) {
+                        results = results.filter(t => {
+                            const cust = String(t.customer || '').toLowerCase();
+                            const mod = String(t.model || '').toLowerCase();
+                            const det = String(t.details || '').toLowerCase();
+                            const eng = String(t.engineer || '').toLowerCase();
+                            return cust.includes(query) || mod.includes(query) || det.includes(query) || eng.includes(query);
+                        });
+                    }
+                    results.sort((a, b) => new Date(b.reportTime) - new Date(a.reportTime));
+                    return query ? results : results.slice(0, 50);
+                });
+
+                const searchStats = computed(() => {
+                    if (!activeSearchQuery.value) return null;
+                    const matched = displayHistoryTickets.value;
+                    if (matched.length === 0) return { total: 0, completionRate: 0, avgSla: 0 };
+                    const total = matched.length;
+                    const completedCount = matched.filter(t => ["完修", "取消叫修"].includes(t.status)).length;
+                    const totalSla = matched.reduce((sum, t) => sum + (Number(t.slaDays) || 0), 0);
+                    return {
+                        total,
+                        completionRate: Math.round((completedCount / total) * 100),
+                        avgSla: Math.round((totalSla / total) * 10) / 10
+                    };
+                });
+
+                const unassignedTickets = computed(() => {
+                    return tickets.value
+                        .filter(t => (!t.engineer || t.engineer === '未指派') && !t.isArchived)
+                        .sort((a, b) => new Date(a.reportTime) - new Date(b.reportTime));
+                });
+
+                const mergeTickets = (incoming) => {
+                    const localMap = new Map(tickets.value.map(t => [t.id, t]));
+                    return incoming.map(inc => {
+                        const local = localMap.get(inc.id);
+                        
+                        let safeReportDate = String(inc.reportTime || "");
+                        if (safeReportDate.includes("T")) safeReportDate = safeReportDate.split("T")[0];
+
+                        let safeCompletedDate = String(inc.completedDate || "");
+                        if (safeCompletedDate.includes("T")) safeCompletedDate = safeCompletedDate.split("T")[0];
+
+                        let attachmentsList = [];
+                        if (inc.attachments) {
+                            if (Array.isArray(inc.attachments)) {
+                                attachmentsList = inc.attachments;
+                            } else if (typeof inc.attachments === 'string') {
+                                try {
+                                    attachmentsList = JSON.parse(inc.attachments);
+                                } catch (e) {
+                                    attachmentsList = inc.attachments ? [inc.attachments] : [];
+                                }
+                            }
+                        }
+
+                        if (local && (isSaving.value || selectedTicket.value?.id === inc.id)) {
+                            return {
+                                ...inc,
+                                reportTime: safeReportDate,
+                                completedDate: safeCompletedDate,
+                                engineer: local.engineer,
+                                status: local.status,
+                                quoteState: local.quoteState,
+                                customer: local.customer,
+                                model: local.model,
+                                details: local.details,
+                                attachments: local.attachments || attachmentsList,
+                                isArchived: inc.isArchived || false
+                            };
+                        }
+
+                        return {
+                            ...inc,
+                            reportTime: safeReportDate,
+                            completedDate: safeCompletedDate,
+                            engineer: inc.engineer || '未指派',
+                            status: inc.status || '未執行',
+                            quoteState: inc.quoteState || '',
+                            attachments: attachmentsList,
+                            isArchived: inc.isArchived || false
+                        };
+                    });
+                };
+
+                const getStatusColor = (ticket) => {
+                    if (ticket.status === '報價') {
+                        if (ticket.quoteState === '已報價') return 'bg-amber-50 border-amber-300 text-amber-900';
+                        if (ticket.quoteState === '同意報價') return 'bg-blue-50 border-blue-300 text-blue-900';
+                        return 'bg-red-50 border-red-300 text-red-900'; 
+                    }
+
+                    switch(ticket.status) {
+                        case '未執行': return 'bg-white border-slate-200 text-slate-800';
+                        case '執行中': return 'bg-sky-50 border-sky-300 text-sky-900';
+                        case '未完成 另約時間': return 'bg-amber-50 border-amber-300 text-amber-900';
+                        case '完修': return 'bg-emerald-50 border-emerald-300 text-emerald-900';
+                        case '取消叫修': return 'bg-slate-100 border-slate-300 text-slate-500 line-through';
+                        default: return 'bg-white border-slate-200';
+                    }
+                };
+
+                const fetchData = async (isBackground = false) => {
+                    if (!isBackground) isLoading.value = true;
+                    try {
+                        const response = await fetch(`${API_URL}?action=getData&t=${new Date().getTime()}`);
+                        const data = await response.json();
+                        
+                        if (data.status === 'success') {
+                            engineers.value = data.engineers || [];
+                            tickets.value = mergeTickets(data.tickets || []);
+                        }
+                    } catch (error) {
+                        console.error("讀取失敗:", error);
+                    } finally {
+                        if (!isBackground) isLoading.value = false;
+                    }
+                };
+
+                const saveData = async () => {
+                    isSaving.value = true;
+                    isLoading.value = true;
+
+                    const cleanTickets = tickets.value.map(t => {
+                        const copy = { ...t };
+                        if (copy.attachments) {
+                            copy.attachments = JSON.stringify(copy.attachments);
+                        }
+                        return copy;
+                    });
+
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "text/plain;charset=utf-8" },
+                            body: JSON.stringify({
+                                action: "syncData",
+                                engineers: engineers.value,
+                                tickets: cleanTickets
+                            })
+                        });
+
+                        const resData = await response.json();
+                        if (resData.status !== "success") {
+                            throw new Error(resData.message || "同步寫入失敗");
+                        }
+                    } catch (error) {
+                        confirmDialog.title = "寫入失敗";
+                        confirmDialog.message = "無法儲存資料至雲端，請檢查網路連線或稍後再試。\n" + error.message;
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                    } finally {
+                        isSaving.value = false;
+                        isLoading.value = false;
+                        await fetchData(true);
+                    }
+                };
+
+                const getTickets = (engineer, status) => {
+                    return tickets.value.filter(t => t.engineer === engineer && t.status === status && !t.isArchived);
+                };
+
+                const handleDateAndStatus = (ticket, newStatus) => {
+                    if (["報價", "完修", "取消叫修"].includes(newStatus)) {
+                        if (!ticket.completedDate) {
+                            const d = new Date();
+                            ticket.completedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        }
+                    } else {
+                        ticket.completedDate = '';
+                    }
+                    if (newStatus === "報價" && !ticket.quoteState) {
+                        ticket.quoteState = "未報價";
+                    }
+                };
+
+                const isOverdue = (ticket) => {
+                    if (["報價", "完修", "取消叫修"].includes(ticket.status)) return false;
+                    const diffTime = new Date().getTime() - new Date(ticket.reportTime).getTime();
+                    return Math.floor(diffTime / (1000 * 60 * 60 * 24)) > ticket.slaDays;
+                };
+
+                const onDragStart = (e, id) => { e.dataTransfer.setData("ticketId", id); };
+                
+                const onDrop = async (e, targetEngineer, targetStatus) => {
+                    const ticketId = e.dataTransfer.getData("ticketId");
+                    const index = tickets.value.findIndex(t => t.id === ticketId);
+                    if (index !== -1) {
+                        const ticket = tickets.value[index];
+                        const origEng = ticket.engineer;
+
+                        if (origEng !== '未指派' && targetEngineer !== '未指派' && origEng !== targetEngineer) {
+                            confirmDialog.title = "權限限制";
+                            confirmDialog.message = "工程師版權限：您無法將已指派的單據直接轉交給其他工程師。\n(若需交接，請先將單據丟回「待指派區」)";
+                            confirmDialog.isWarning = true;
+                            confirmDialog.isOpen = true;
+                            return;
+                        }
+
+                        const newStatus = targetEngineer === '未指派' ? '未執行' : targetStatus;
+                        const updatedTicket = {
+                            ...ticket,
+                            engineer: targetEngineer,
+                            status: newStatus
+                        };
+                        handleDateAndStatus(updatedTicket, newStatus);
+                        tickets.value.splice(index, 1, updatedTicket);
+                        await saveData();
+                    }
+                };
+
+                const openTicketModal = (ticket) => { selectedTicket.value = ticket; editData.value = JSON.parse(JSON.stringify(ticket)); };
+                const closeTicketModal = () => { selectedTicket.value = null; };
+                
+                const allowedEngineersInModal = computed(() => {
+                    if (!selectedTicket.value) return [];
+                    if (selectedTicket.value.engineer !== '未指派') {
+                        return [selectedTicket.value.engineer];
+                    }
+                    return engineers.value;
+                });
+
+                const saveTicketModal = async () => {
+                    const index = tickets.value.findIndex(t => t.id === editData.value.id);
+                    if (index !== -1) {
+                        if (editData.value.engineer === '未指派') editData.value.status = '未執行';
+                        handleDateAndStatus(editData.value, editData.value.status);
+                        tickets.value[index] = { ...editData.value };
+                    }
+                    closeTicketModal();
+                    await saveData(); 
+                };
+
+                const executeConfirm = () => { if (confirmDialog.onConfirm) confirmDialog.onConfirm(); confirmDialog.isOpen = false; };
+
+                const captureBoard = () => {
+                    const boardEl = document.getElementById('kanban-board'); if (!boardEl) return;
+                    isLoading.value = true;
+                    setTimeout(() => {
+                        html2canvas(boardEl, {
+                            useCORS: true, backgroundColor: '#F8FAFC', scale: 2, logging: false,
+                            onclone: (clonedDoc) => {
+                                const style = clonedDoc.createElement('style');
+                                style.innerHTML = `
+                                    * { line-height: 1.5 !important; font-family: 'Microsoft JhengHei', sans-serif !important; }
+                                    div, span, p, h1, h2, h3, h4, button, a { padding-bottom: 2px !important; }
+                                `;
+                                clonedDoc.head.appendChild(style);
+
+                                const cb = clonedDoc.getElementById('kanban-board');
+                                if (cb) {
+                                    cb.style.minWidth = 'max-content'; cb.style.height = 'max-content'; cb.style.overflow = 'visible';
+                                    cb.style.paddingBottom = '15px';
+                                    cb.querySelectorAll('.truncate').forEach(el => { el.classList.remove('truncate'); el.style.whiteSpace = 'normal'; el.style.wordBreak = 'break-word'; });
+                                }
+                            }
+                        }).then(canvas => {
+                            const link = document.createElement('a'); 
+                            link.setAttribute('download', `主看板狀態_${new Date().toISOString().split('T')[0]}.jpg`);
+                            link.setAttribute('href', canvas.toDataURL('image/jpeg', 0.95)); 
+                            document.body.appendChild(link); 
+                            link.click(); 
+                            document.body.removeChild(link);
+                            isLoading.value = false;
+                        }).catch(() => { isLoading.value = false; });
+                    }, 300);
+                };
+
+                const viewImage = (imgSrc) => {
+                    viewingImage.value = imgSrc;
+                };
+
+                const closeImageViewer = () => {
+                    viewingImage.value = null;
+                };
+
+                const removeAttachment = (index) => {
+                    if (editData.value && editData.value.attachments) {
+                        editData.value.attachments.splice(index, 1);
+                    }
+                };
+
+                const compressImageToSafeSize = (file) => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = (event) => {
+                            const img = new Image();
+                            img.src = event.target.result;
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                
+                                let width = img.width;
+                                let height = img.height;
+                                let quality = 0.8; 
+
+                                const MAX_DIMENSION = 800;
+                                if (width > height) {
+                                    if (width > MAX_DIMENSION) {
+                                        height = Math.round((height * MAX_DIMENSION) / width);
+                                        width = MAX_DIMENSION;
+                                    }
+                                } else {
+                                    if (height > MAX_DIMENSION) {
+                                        width = Math.round((width * MAX_DIMENSION) / height);
+                                        height = MAX_DIMENSION;
+                                    }
+                                }
+
+                                const getCompressed = (w, h, q) => {
+                                    canvas.width = w; canvas.height = h;
+                                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h);
+                                    ctx.drawImage(img, 0, 0, w, h);
+                                    return canvas.toDataURL('image/jpeg', q);
+                                };
+
+                                let base64 = getCompressed(width, height, quality);
+                                
+                                const MAX_CHARS = 45000; 
+                                let attempts = 0; 
+
+                                while (base64.length > MAX_CHARS && attempts < 10) {
+                                    attempts++;
+                                    quality -= 0.1;
+                                    if (quality < 0.4) {
+                                        width = Math.round(width * 0.8);
+                                        height = Math.round(height * 0.8);
+                                        quality = 0.7; 
+                                    }
+                                    base64 = getCompressed(width, height, quality);
+                                }
+
+                                if (base64.length > MAX_CHARS) {
+                                    reject(new Error("圖片過度複雜無法壓縮，請嘗試手機截圖後再上傳。"));
+                                } else {
+                                    resolve(base64);
+                                }
+                            };
+                            img.onerror = () => reject(new Error("讀取圖片失敗"));
+                        };
+                    });
+                };
+
+                const handleImageUpload = async (event) => {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    
+                    if (!editData.value.attachments) {
+                        editData.value.attachments = [];
+                    }
+
+                    if (editData.value.attachments.length + files.length > 1) {
+                        confirmDialog.title = "附件數量限制";
+                        confirmDialog.message = "為了確保系統穩定，每筆單據最多只能夾帶 1 張圖片喔！\n若需上傳新圖，請先點擊上方圖片右上角的 'X' 刪除舊圖。";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                        event.target.value = null;
+                        return;
+                    }
+                    
+                    isLoading.value = true; 
+
+                    try {
+                        for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            const compressedBase64 = await compressImageToSafeSize(file);
+                            editData.value.attachments.push(compressedBase64);
+                        }
+                    } catch (err) {
+                        confirmDialog.title = "圖片處理失敗";
+                        confirmDialog.message = err.message || "無法處理您上傳的圖片，請確保是標準的圖片格式 (JPG, PNG)。";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                    } finally {
+                        event.target.value = null;
+                        isLoading.value = false;
+                    }
+                };
+
+                onMounted(() => {
+                    fetchData();
+                    setInterval(() => fetchData(true), 30000); // 每 30 秒背景自動輪詢同步
+                });
+
+                return {
+                    statuses, engineers, tickets, getTickets, getStatusColor,
+                    isOverdue, onDragStart, onDrop, unassignedTickets,
+                    selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, allowedEngineersInModal,
+                    confirmDialog, executeConfirm, isLoading, captureBoard,
+                    showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
+                    displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,
+                    fetchData, isUnassignedExpanded,
+                    viewingImage, viewImage, closeImageViewer, handleImageUpload, removeAttachment
+                };
+            }
+        };
+
+        const app = createApp(App);
+
+        app.component('l-icon', {
+            props: ['name'],
+            data() { return { iconHtml: '' } },
+            watch: {
+                name: {
+                    immediate: true,
+                    handler(newVal) {
+                        if (window.lucide && newVal) {
+                            const temp = document.createElement('div');
+                            temp.innerHTML = `<i data-lucide="${newVal}"></i>`;
+                            window.lucide.createIcons({ root: temp });
+                            const svg = temp.querySelector('svg');
+                            if (svg) {
+                                svg.removeAttribute('width');
+                                svg.removeAttribute('height');
+                                svg.setAttribute('width', '100%');
+                                svg.setAttribute('height', '100%');
+                                this.iconHtml = temp.innerHTML;
+                            }
+                        }
+                    }
+                }
+            },
+            template: `<span class="inline-flex items-center justify-center l-icon-wrapper pointer-events-none" v-html="iconHtml"></span>`
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>
