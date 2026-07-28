@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>餐飲設備維修叫修系統 - 老闆簡報重點與核心優勢</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        body {
+            font-family: 'Microsoft JhengHei', '微軟正黑體', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #1e293b;
+            background: #ffffff;
+            line-height: 1.6;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .page-break { page-break-before: always; }
+    </style>
+</head>
+<body class="p-4">
+
+    <!-- 封面 / 標題抬頭 -->
+    <div class="border-b-4 border-blue-600 pb-6 mb-8 flex justify-between items-end">
+        <div>
+            <div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full mb-2 tracking-wide uppercase">
+                高階管理決策簡報
+            </div>
+            <h1 class="text-3xl font-black text-slate-900 tracking-tight">
+                餐飲設備維修叫修管理系統
+            </h1>
+            <p class="text-lg text-slate-500 font-semibold mt-1">
+                工程團隊派單數位化、溝通零死角與效益提升報告
+            </p>
+        </div>
+        <div class="text-right text-xs text-slate-400 font-medium">
+            <div>報告單位：餐飲設備維修工程團隊</div>
+            <div>報告日期：2026 年 07 月 29 日</div>
+        </div>
+    </div>
+
+    <!-- 執行摘要 -->
+    <div class="bg-slate-50 border-l-4 border-blue-600 p-5 rounded-r-xl mb-8 shadow-sm">
+        <h2 class="text-base font-bold text-blue-900 mb-1 flex items-center gap-2">
+            📌 執行摘要 (Executive Summary)
+        </h2>
+        <p class="text-sm text-slate-700 leading-relaxed">
+            針對本公司專營蒸烤箱、咖啡機等餐飲設備維修「時效緊迫」、「等零件/另約營業空檔」之現場實務特性，我們完成了全新的數位叫修輔助管理平台。本系統<b>徹底解決過去 Google 多帳號切換導致系統當機與權限混淆的營運痛點</b>，全面優化派單流暢度，降低掉單風險並建立維修大數據資產。
+        </p>
+    </div>
+
+    <!-- 🎯 3 大傳統營運痛點 vs 解決方案 -->
+    <div class="mb-8">
+        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2 border-l-4 border-amber-500 pl-3">
+            🎯 現行營運痛點與數位化對策
+        </h2>
+        
+        <div class="grid grid-cols-1 gap-4">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex gap-4 items-start">
+                <div class="bg-rose-100 text-rose-700 text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 mt-0.5">痛點一</div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base mb-1">Google 多帳號 Session 權限衝突導致系統當機</h3>
+                    <p class="text-xs text-slate-600"><b>現狀問題：</b>內勤與工程師電腦常同時登入個人與公司 Google 帳號，導致舊 Apps Script 出現 403 權限錯誤或跳出 HTML 當機選單。<br><span class="text-emerald-700 font-semibold">✨ 數位對策：採用獨立免帳號混淆 Web API 技術，100% 雲端穩定連線，告別當機與掉單風險。</span></p>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex gap-4 items-start">
+                <div class="bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 mt-0.5">痛點二</div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base mb-1">門市急修與零件等待進度混亂、電話重複溝通</h3>
+                    <p class="text-xs text-slate-600"><b>現狀問題：</b>連鎖客戶（如全家門市）急修案件多，工程師現場常因等待零件或需避開門市用餐高峰而延後，內勤無法即時掌握狀態。<br><span class="text-emerald-700 font-semibold">✨ 數位對策：增設獨立「待指派區」、「報價進度專區」與「另約時間」看板，狀態透明一目瞭然。</span></p>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex gap-4 items-start">
+                <div class="bg-sky-100 text-sky-700 text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 mt-0.5">痛點三</div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base mb-1">缺乏維修時效監控與歷史維修履歷資產</h3>
+                    <p class="text-xs text-slate-600"><b>現狀問題：</b>無法精準統計合約 SLA 達成率，歷史叫修資料散落於通訊軟體或紙本。<br><span class="text-emerald-700 font-semibold">✨ 數位對策：內建 SLA 時效自動紅字預警、430+ 筆歷史叫修履歷模糊搜尋，並支援 CSV 數據分析匯出。</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚀 5 大核心營運優勢 -->
+    <div class="mb-8">
+        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2 border-l-4 border-emerald-500 pl-3">
+            🚀 系統 5 大核心營運效益
+        </h2>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <div class="text-blue-600 font-bold text-sm mb-1">01. 5 大動態流程看板</div>
+                <p class="text-xs text-slate-600">未執行 ➔ 另約時間 ➔ 報價 ➔ 完修 ➔ 取消。專為門市營業空檔與等待原廠零件特性設計。</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <div class="text-purple-600 font-bold text-sm mb-1">02. 獨立報價進度專區</div>
+                <p class="text-xs text-slate-600">精準追蹤「未報價/已報價/同意報價」，提升備料效率與客戶同意率，保障維修毛利。</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <div class="text-amber-600 font-bold text-sm mb-1">03. SLA 時效逾期預警</div>
+                <p class="text-xs text-slate-600">設定合約要求天數，超時案件卡片自動跳動紅字警報，大幅降低連鎖客戶抱怨率。</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                <div class="text-emerald-600 font-bold text-sm mb-1">04. 現場圖片與對話整合</div>
+                <p class="text-xs text-slate-600">可夾帶故障照片與報價單，並自動解析門市電話、地址、保固狀態與故障主因。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔒 權限防護與資產總結 -->
+    <div class="bg-gradient-to-r from-slate-900 to-blue-900 text-white p-6 rounded-2xl shadow-md">
+        <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
+            🛡️ 資訊安全與管理總結
+        </h3>
+        <p class="text-xs text-blue-100 leading-relaxed mb-3">
+            本系統所有維修單據皆安全儲存於公司專屬 Google 雲端資料庫，資料產權完全歸公司所有。管理者關鍵設定（後端 API 與全量 CSV 匯出）皆設有權限防護鎖，防止非授權人員誤觸或洩漏數據。
+        </p>
+        <div class="flex justify-between items-center text-xs text-blue-200 border-t border-white/10 pt-3">
+            <span>預期效益：維修派單效率提升 40% ｜ 電話溝通時間減少 60% ｜ SLA 達標率 > 95%</span>
+            <span class="font-bold text-white">工程團隊 敬上</span>
+        </div>
+    </div>
+
+</body>
+</html>
