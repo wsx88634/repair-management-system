@@ -43,32 +43,29 @@
     <div id="app" v-cloak class="min-h-screen p-4 md:p-6 lg:p-8">
         <div class="max-w-[1400px] mx-auto space-y-6">
             
-            <!-- 頂部區塊 -->
+            <!-- 1. 頂部區塊 (頁頭與新增派單表單，與叫修資訊看板4排版100%一致) -->
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
-                            <div class="bg-blue-100 p-2 rounded-lg">
-                                <l-icon name="wrench" class="text-blue-600 w-6 h-6"></l-icon>
-                            </div>
-                            叫修輔助管理工具
-                            <span v-if="isLoading" class="text-xs font-medium text-blue-500 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1.5 animate-pulse ml-2 border border-blue-100">
-                                <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
-                            </span>
-                        </h1>
-                        <!-- API 免混淆連線狀態徽章 -->
-                        <div class="mt-2 flex items-center gap-2 text-xs font-semibold">
-                            <span :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'" class="px-2.5 py-1 rounded-full border flex items-center gap-1.5">
-                                <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : 'bg-amber-500'" class="w-2 h-2 rounded-full shadow-sm"></span>
-                                {{ isApiConnected ? 'GAS API 已連線 (免帳號混淆模式)' : '本地離線 / Mock 體驗模式' }}
-                            </span>
-                            <button @click="showSettingsModal = true" class="text-blue-600 hover:text-blue-800 underline flex items-center gap-1 ml-1">
-                                <l-icon name="sliders" class="w-3.5 h-3.5"></l-icon> 後端 API 設定
-                            </button>
+                    <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <div class="bg-blue-100 p-2 rounded-lg">
+                            <l-icon name="wrench" class="text-blue-600 w-6 h-6"></l-icon>
                         </div>
-                    </div>
-
+                        叫修輔助管理工具
+                        <span v-if="isLoading" class="text-xs font-medium text-blue-500 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1.5 animate-pulse ml-2 border border-blue-100">
+                            <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
+                        </span>
+                        <!-- API 狀態標籤 -->
+                        <span :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                            <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : 'bg-amber-500'" class="w-2 h-2 rounded-full shadow-sm"></span>
+                            {{ isApiConnected ? 'GAS API 已連線' : '本地體驗模式' }}
+                        </span>
+                    </h1>
+                    
+                    <!-- 按鈕群 -->
                     <div class="flex flex-wrap gap-3">
+                        <button @click="showSettingsModal = true" class="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                            <l-icon name="sliders" class="w-4 h-4"></l-icon> 後端 API 設定
+                        </button>
                         <button @click="confirmBatchArchive" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-amber-500/20">
                             <l-icon name="archive" class="w-4 h-4"></l-icon> 一鍵封存結案
                         </button>
@@ -140,7 +137,7 @@
                 </form>
             </div>
 
-            <!-- 待指派放置區 -->
+            <!-- 2. 待指派放置區 (未指派派單) -->
             <div id="unassigned-section" class="bg-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 shadow-inner transition-all duration-300" @dragover.prevent @drop="onDrop($event, '未指派', '未執行')">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-bold text-slate-600 flex items-center gap-2">
@@ -212,7 +209,7 @@
                 </div>
             </div>
 
-            <!-- 報價進度追蹤區 -->
+            <!-- 3. 報價進度追蹤區 -->
             <div id="quote-section" class="bg-slate-100 p-6 rounded-2xl border-2 border-dashed border-purple-300 shadow-inner transition-all duration-300">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-bold text-slate-600 flex items-center gap-2">
@@ -285,7 +282,7 @@
                 </div>
             </div>
 
-            <!-- 主工程師狀態看板 (5 欄標準格式：未執行 | 未完成 / 另約時間 | 報價 | 完修 | 取消叫修) -->
+            <!-- 4. 主工程師狀態看板 (5 大標準欄位：未執行 | 未完成 / 另約時間 | 報價 | 完修 | 取消叫修) -->
             <div class="overflow-x-auto pb-6 custom-scrollbar">
                 <div id="kanban-board" class="min-w-[1200px] flex flex-col gap-5 p-4 rounded-xl bg-[#F8FAFC]">
                     <div class="grid grid-cols-[140px_repeat(5,minmax(180px,1fr))] gap-4">
@@ -357,6 +354,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
         <!-- 歷史複查 Modal -->
@@ -780,7 +778,7 @@
 
     </div>
 
-    <!-- Vue 3 前端核心 Script (完全單一 HTML 檔案結構) -->
+    <!-- Vue 3 前端核心 Script -->
     <script>
         const { createApp, ref, reactive, computed, onMounted } = Vue;
 
