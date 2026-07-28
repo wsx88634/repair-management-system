@@ -8,19 +8,22 @@
 ## 關鍵時程
 - 專案初始化：2026-07-28
 - 核心 UI 與 GAS 免混淆 API 建立：2026-07-28
+- 434 筆歷史資料匯入、密碼防護與雙 PDF 報告導出：2026-07-29
+- 快捷通話/導航卡片整合與 Vercel 手機網址發布：2026-07-29
 
 ## 目標與路線圖
 - [x] 階段一：專案基礎建設與需求規劃 (L1/L2/L3 初始化完成)
-- [x] 階段二：核心功能開發與介面設計 (前端 UI + Apps Script Code.gs 範本完成)
-- [ ] 階段三：測試與使用者實地整合部署
+- [x] 階段二：核心功能開發與介面設計 (前端 UI + 434 筆叫修單據 + Apps Script Code.gs 範本完成)
+- [x] 階段三：測試與實地整合部署 (主看板 + 工程師看板 + Vercel 全球手機網址部署 + 雙 PDF 簡報完工)
 
 ## 資料夾結構
 ```text
 叫修輔助管理系統/
 ├── index.html       # 叫修管理系統主 UI 頁面 (總管/調度員版)
 ├── engineer.html    # 叫修輔助管理系統 - 工程師專用看板 (權限限制與圖檔壓縮)
-├── style.css        # 現代黑藍質感設計系統與響應式樣式
-├── app.js           # 前端邏輯控制器 (支援 Mock 模擬與 GAS API 直連)
+├── boss_report.html # 老闆簡報 HTML 來源
+├── user_manual.html # 團隊操作手冊 HTML 來源
+├── imported_data.json # 歷史轉檔 JSON (434 筆叫修單據 + 9 位工程師)
 ├── gas/
 │   ├── Code.gs      # Google Apps Script 免混淆後端程式碼
 │   └── README.md    # GAS 超詳細部署指南
@@ -29,13 +32,9 @@
 └── .gitignore
 ```
 
-## 同步層級（本專案初始化至第 3 層級）
-
-| 層級 | 平台 | 位置 | 讀取時機 |
-|------|------|------|---------|
-| L1 | 本地（GDrive） | `agents.md`＋`handoff.md` | 每個 session |
-| L2 | GitHub | `wsx88634/repair-management-system` | 指定時 |
-| L3 | Obsidian | `叫修輔助管理系統/專案工作流程.md` | 有需要時 |
+## 手機上線正式網址 (Vercel 託管)
+- 👔 **主看板**：`https://repair-management-system-nu.vercel.app`
+- 👷 **工程師看板**：`https://repair-management-system-nu.vercel.app/engineer.html`
 
 ## 工作約定
 - 任何 Agent、任何電腦：**開工先讀 `handoff.md`，收工必更新 `handoff.md`**
