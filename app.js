@@ -6,11 +6,11 @@ const { createApp, ref, reactive, computed, onMounted } = Vue;
 
 const App = {
     setup() {
-        // === 常數與預設資料 ===
-        const statuses = ["未執行", "零件到達/待處理", "處理中", "報價", "完修", "取消叫修"];
+        // === 狀態欄位定型：未執行 -> 未完成 / 另約時間 -> 報價 -> 完修 -> 取消叫修 ===
+        const statuses = ["未執行", "未完成 / 另約時間", "報價", "完修", "取消叫修"];
         const defaultEngineers = ["小張", "老王", "阿豪", "陳技師"];
 
-        // 免混淆 GAS API URL (來自 LocalStorage 或傳入)
+        // 免混淆 GAS API URL (來自 LocalStorage)
         const apiUrl = ref(localStorage.getItem("gas_repair_api_url") || "");
         const showSettingsModal = ref(false);
         const apiUrlInput = ref(apiUrl.value);
@@ -25,7 +25,7 @@ const App = {
                 model: "HP LaserJet Enterprise M507",
                 engineer: "小張",
                 slaDays: 2,
-                status: "處理中",
+                status: "未完成 / 另約時間",
                 completedDate: "",
                 quoteState: "",
                 isArchived: false,
@@ -111,7 +111,7 @@ const App = {
             onConfirm: null
         });
 
-        // === 自動解析詳細備註裡的欄位 (聯絡人、電話、地址、保固、故障) ===
+        // === 自動解析詳細備註裡的欄位 ===
         const parseDetails = (details) => {
             if (!details) return { contact: '', phone: '', address: '', warranty: '', issue: '' };
             const extractField = (str, regex) => {
@@ -196,7 +196,7 @@ const App = {
             return stats;
         });
 
-        // === 資料讀取與寫入 (GAS API / LocalStorage Dual Mode) ===
+        // === 資料讀取與寫入 ===
         const mergeTickets = (incoming) => {
             const localMap = new Map(tickets.value.map(t => [t.id, t]));
             return incoming.map(inc => {
@@ -209,6 +209,13 @@ const App = {
                 if (safeCompletedDate && safeCompletedDate.includes("T")) safeCompletedDate = safeCompletedDate.split("T")[0];
 
                 let safeStatus = inc.status || "未執行";
+                if (safeStatus === "零件到達/待處理" || safeStatus === "未完成 另約時間") {
+                    safeStatus = "未完成 / 另約時間";
+                }
+                if (safeStatus === "處理中") {
+                    safeStatus = "未完成 / 另約時間";
+                }
+
                 let safeAttachments = [];
                 let rawAttachments = inc.attachments !== undefined ? inc.attachments : (local ? local.attachments : []);
                 if (Array.isArray(rawAttachments)) safeAttachments = rawAttachments;
@@ -231,7 +238,6 @@ const App = {
         const fetchData = async (isBackground) => {
             const isSilent = isBackground === true;
             if (!apiUrl.value) {
-                // 本地模式
                 const localData = localStorage.getItem("local_repair_tickets_v2");
                 const localEngs = localStorage.getItem("local_repair_engineers_v2");
                 if (localData) { try { tickets.value = JSON.parse(localData); } catch(e){} }
@@ -268,7 +274,6 @@ const App = {
         };
 
         const saveData = async () => {
-            // 先儲存至 LocalStorage 作為備份
             localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
             localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
@@ -334,7 +339,7 @@ const App = {
             }, 60000);
         });
 
-        // === 看板與狀態控制邏輯 ===
+        // === 看板顏色與卡片樣式 ===
         const getStatusColor = (ticket) => {
             if (!ticket) return "bg-white border-slate-200";
             const status = typeof ticket === 'string' ? ticket : ticket.status;
@@ -345,12 +350,17 @@ const App = {
                 if (qState === '同意報價') return "bg-blue-50/90 border-blue-300 text-blue-900 border-[2px] shadow-sm";
             }
             switch (status) {
-                case "未執行": return "bg-red-50/80 border-red-200 text-red-900";
-                case "零件到達/待處理": return "bg-purple-100 border-purple-300 text-purple-900 shadow-sm";
-                case "處理中": return "bg-blue-50/80 border-blue-200 text-blue-900";
-                case "完修": return "bg-emerald-50/80 border-emerald-200 text-emerald-900";
-                case "取消叫修": return "bg-slate-100 border-slate-300 text-slate-700";
-                default: return "bg-white border-slate-200";
+                case "未執行": 
+                    return "bg-red-50/80 border-red-200 text-red-900";
+                case "未完成 / 另約時間": 
+                case "未完成 另約時間": 
+                    return "bg-purple-100 border-purple-300 text-purple-900 border-[2px] shadow-sm";
+                case "完修": 
+                    return "bg-emerald-50/80 border-emerald-200 text-emerald-900";
+                case "取消叫修": 
+                    return "bg-slate-100 border-slate-300 text-slate-700";
+                default: 
+                    return "bg-white border-slate-200";
             }
         };
 
@@ -386,7 +396,7 @@ const App = {
             return Math.floor(diffTime / (1000 * 60 * 60 * 24)) > ticket.slaDays;
         };
 
-        // 拖拽排程 Drag & Drop
+        // 拖拽排程
         const onDragStart = (e, id) => { e.dataTransfer.setData("ticketId", id); };
         const onDrop = async (e, targetEngineer, targetStatus) => {
             const ticketId = e.dataTransfer.getData("ticketId");
@@ -590,7 +600,7 @@ const App = {
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
         };
 
-        // html2canvas 看板與區塊截圖
+        // html2canvas 截圖
         const captureSection = (elementId, prefix) => {
             const sectionEl = document.getElementById(elementId);
             if (!sectionEl) return;
@@ -724,7 +734,6 @@ const App = {
 
 const app = createApp(App);
 
-// 註冊安全隔離的 Lucide 圖示組件
 app.component('l-icon', {
     props: ['name'],
     data() { return { iconHtml: '' }; },
