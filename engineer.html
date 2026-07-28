@@ -713,11 +713,11 @@
                     }
 
                     switch(ticket.status) {
-                        case '未執行': return 'bg-white border-slate-200 text-slate-800';
-                        case '執行中': return 'bg-sky-50 border-sky-300 text-sky-900';
-                        case '未完成 另約時間': return 'bg-amber-50 border-amber-300 text-amber-900';
-                        case '完修': return 'bg-emerald-50 border-emerald-300 text-emerald-900';
-                        case '取消叫修': return 'bg-slate-100 border-slate-300 text-slate-500 line-through';
+                        case '未執行': return 'bg-red-50/80 border-red-200 text-red-900';
+                        case '未完成 / 另約時間':
+                        case '未完成 另約時間': return 'bg-purple-100 border-purple-300 text-purple-900 border-[2px] shadow-sm';
+                        case '完修': return 'bg-emerald-50 border-emerald-200 text-emerald-900';
+                        case '取消叫修': return 'bg-slate-100 border-slate-300 text-slate-700';
                         default: return 'bg-white border-slate-200';
                     }
                 };
