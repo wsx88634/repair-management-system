@@ -611,20 +611,35 @@
                         </div>
                     </div>
 
-                    <!-- ⚡ 快捷行動區塊 (一鍵通話與地圖導航) -->
-                    <div v-if="parseDetails(editData.details).phone || parseDetails(editData.details).address" class="bg-gradient-to-r from-emerald-50 to-sky-50 border border-emerald-200/80 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                    <!-- ⚡ 快捷行動區塊 (一鍵通話與地圖導航，永久固定顯示) -->
+                    <div class="bg-gradient-to-r from-emerald-50 via-sky-50 to-blue-50 border border-slate-200/90 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
                         <div class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                            <l-icon name="zap" class="w-4 h-4 text-amber-500 fill-amber-400"></l-icon>
-                            <span>快捷行動選項：</span>
+                            <div class="p-1 bg-amber-100 rounded-md">
+                                <l-icon name="zap" class="w-4 h-4 text-amber-600 fill-amber-500"></l-icon>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800">⚡ 快捷行動卡片</div>
+                                <div class="text-[11px] text-slate-500 font-normal">現場工程師與內勤快速通話 / Google 地圖導航</div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2.5 flex-wrap">
-                            <a v-if="parseDetails(editData.details).phone" :href="'tel:' + parseDetails(editData.details).phone" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95">
+                        <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+                            <!-- 撥號按鈕 -->
+                            <a v-if="parseDetails(editData.details).phone" :href="'tel:' + parseDetails(editData.details).phone" class="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex-1 sm:flex-none">
                                 <l-icon name="phone-call" class="w-3.5 h-3.5"></l-icon>
                                 撥號 ({{ parseDetails(editData.details).phone }})
                             </a>
-                            <a v-if="parseDetails(editData.details).address" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parseDetails(editData.details).address)" target="_blank" class="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-sky-600/20 transition-all active:scale-95">
+                            <span v-else class="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 inline-flex items-center gap-1">
+                                <l-icon name="phone-off" class="w-3.5 h-3.5"></l-icon> 備註無電話
+                            </span>
+
+                            <!-- 導航按鈕 -->
+                            <a v-if="parseDetails(editData.details).address" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parseDetails(editData.details).address)" target="_blank" class="inline-flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-sky-600/20 transition-all active:scale-95 flex-1 sm:flex-none" :title="'導航地址: ' + parseDetails(editData.details).address">
                                 <l-icon name="navigation" class="w-3.5 h-3.5"></l-icon>
                                 Google 地圖導航
+                            </a>
+                            <a v-else-if="editData.customer" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(editData.customer)" target="_blank" class="inline-flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-sky-600/20 transition-all active:scale-95 flex-1 sm:flex-none" :title="'搜尋門市: ' + editData.customer">
+                                <l-icon name="search" class="w-3.5 h-3.5"></l-icon>
+                                導航搜尋「{{ editData.customer }}」
                             </a>
                         </div>
                     </div>
@@ -980,13 +995,26 @@
                         const match = str.match(regex);
                         return match ? match[1].trim() : '';
                     };
-                    return {
-                        contact: extractField(details, /(?:聯絡人|對口|負責人|姓名)[：:\s]*([^\n,，;]+)/),
-                        phone: extractField(details, /(?:電話|手機|聯絡電話|分機|TEL)[：:\s]*([^\n,，;]+)/),
-                        address: extractField(details, /(?:地址|地點|位置|廠區)[：:\s]*([^\n,，;]+)/),
-                        warranty: extractField(details, /(?:保固|合約|狀態)[：:\s]*([^\n,，;]+)/),
-                        issue: extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/)
-                    };
+
+                    let contact = extractField(details, /(?:聯絡人|對口|負責人|連絡人|姓名|對象)[：:\s]*([^\n,，;]+)/);
+                    let phone = extractField(details, /(?:電話|手機|聯絡電話|連絡電話|分機|TEL)[：:\s]*([^\n,，;]+)/);
+                    let address = extractField(details, /(?:維修地址|門市地址|送修地址|地址|地點|位置|廠區)[：:\s]*([^\n,，;]+)/);
+                    let warranty = extractField(details, /(?:保固|合約|狀態)[：:\s]*([^\n,，;]+)/);
+                    let issue = extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/);
+
+                    // 超強備用抽取：自動全字串偵測台灣手機 09xx / 市話 0x-xxxx 或 9-10 位數電話
+                    if (!phone) {
+                        const phoneMatch = details.match(/(?:09\d{2}[-?\s]?\d{3}[-?\s]?\d{3}|0\d{1,2}[-?\s]?\d{6,8})/);
+                        if (phoneMatch) phone = phoneMatch[0].trim();
+                    }
+
+                    // 超強備用抽取：自動全字串偵測包含 縣/市/區/路/街/號/樓 的地址格式
+                    if (!address) {
+                        const addrMatch = details.match(/(?:[\u4e00-\u9fa5]{2,3}[縣市])?[\u4e00-\u9fa5]{2,4}[區市鄉鎮][\u4e00-\u9fa50-9a-zA-Z\s\-\(\)\（\）]+(?:路|街|大道|段|巷|弄|號|樓)/);
+                        if (addrMatch) address = addrMatch[0].trim();
+                    }
+
+                    return { contact, phone, address, warranty, issue };
                 };
 
                 const toggleNote = (id) => {
