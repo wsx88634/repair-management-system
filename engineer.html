@@ -525,17 +525,34 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, nextTick, watch, onMounted, computed } = Vue;
+        const defaultEngineers = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
+        const defaultTickets = [
+            {"id": "T-9612", "reportTime": "2026-07-20", "customer": "全家-左營海訓店", "model": "XS", "engineer": "劉明忠 Yuie", "slaDays": 30, "status": "未執行", "completedDate": "", "quoteState": "", "isArchived": false, "details": "沒有在rational網路平台裡面\n電話：07-5812345\n地址：高雄市左營區海邊路100號", "attachments": []},
+            {"id": "T-4100", "reportTime": "2026-06-10", "customer": "台中港中油（緯成）", "model": "SCC WE 101", "engineer": "楊棟嘉 Ken", "slaDays": 5, "status": "報價", "completedDate": "2026-06-16", "quoteState": "未報價", "isArchived": false, "details": "現場老鼠咬破大量電線及管路\n需評估維修費用\n聯絡人：陳專員\n電話：04-26567890\n地址：台中市梧棲區台灣大道十段1號", "attachments": []},
+            {"id": "T-4650", "reportTime": "2026-06-10", "customer": "好膳企業股份有限公司", "model": "急速冷凍機", "engineer": "廖聖典 Max", "slaDays": 5, "status": "報價", "completedDate": "2026-06-11", "quoteState": "已報價", "isArchived": false, "details": "1.客戶名稱：好膳企業股份有限公司\n2.聯絡人：郭照應\n3.電話：0932-998-269\n4.地址：新北市中和區中山路988巷8號2樓\n5.故障問題：客戶自己撞壞面板", "attachments": []},
+            {"id": "T-4822", "reportTime": "2026-06-15", "customer": "金色三麥桃園藝文店", "model": "Icp 101", "engineer": "林正賢 Jeff", "slaDays": 5, "status": "報價", "completedDate": "2026-06-15", "quoteState": "同意報價", "isArchived": false, "details": "店名：金色三麥桃園藝文店\n地址：桃園市南平路301號\n聯絡人：楊雅婷\n電話：0921902437\n維修設備：蒸烤箱會漏水", "attachments": []},
+            {"id": "T-1539", "reportTime": "2026-06-12", "customer": "家樂福-台南新營", "model": "SCC WE 201", "engineer": "劉明忠 Yuie", "slaDays": 50, "status": "未完成 另約時間", "completedDate": "", "quoteState": "", "isArchived": false, "details": "索賠同意報價維修換玻璃\n聯絡電話：06-6321111\n地址：台南市新營區中正路150號", "attachments": []},
+            {"id": "T-0955", "reportTime": "2026-06-12", "customer": "日樂芙台灣股份有限公司(薇思克)", "model": "MF70.1", "engineer": "廖聖典 Max", "slaDays": 5, "status": "未完成 另約時間", "completedDate": "", "quoteState": "", "isArchived": false, "details": "1.聯絡人：蘇雨欣小姐\n2.電話：02-29957258\n3.地址：新北市三重區光復路一段61巷26號7樓之1\n4.問題：運轉有異音", "attachments": []},
+            {"id": "T-7115", "reportTime": "2026-06-16", "customer": "馬禾軒", "model": "急速冷凍機", "engineer": "未指派", "slaDays": 5, "status": "未執行", "completedDate": "", "quoteState": "", "isArchived": false, "details": "聯絡人：Marc Lin\n電話：0939333458\n地址：宜蘭縣羅東鎮純精路三段158號\n問題：溫度無法下降", "attachments": []}
+        ];
 
         const API_URL = "https://script.google.com/macros/s/AKfycbzfYZJIjZU2tsO1X5PMiqkDD7lsuJNgOcP1KfE6kn3okznCBd7Klct3sOgOZ8UpoHOsdg/exec"; 
 
         const App = {
             setup() {
                 const statuses = ["未執行", "執行中", "未完成 另約時間", "報價", "完修", "取消叫修"];
-                const engineers = ref([]);
+                
+                // 本地快取優先與預設保底
+                const localEngs = localStorage.getItem("local_repair_engineers_v2");
+                const initialEngs = localEngs ? JSON.parse(localEngs) : defaultEngineers;
+
+                const localTickets = localStorage.getItem("local_repair_tickets_v2");
+                const initialTickets = localTickets ? JSON.parse(localTickets) : defaultTickets;
+
+                const engineers = ref([...initialEngs]);
                 const isLoading = ref(false);
                 const isSaving = ref(false);
-                const tickets = ref([]);
+                const tickets = ref([...initialTickets]);
 
                 const selectedTicket = ref(null);
                 const editData = ref({});
@@ -704,11 +721,17 @@
                         const data = await response.json();
                         
                         if (data.status === 'success') {
-                            engineers.value = data.engineers || [];
-                            tickets.value = mergeTickets(data.tickets || []);
+                            if (data.engineers && Array.isArray(data.engineers) && data.engineers.length > 0) {
+                                engineers.value = data.engineers;
+                                localStorage.setItem("local_repair_engineers_v2", JSON.stringify(data.engineers));
+                            }
+                            if (data.tickets && Array.isArray(data.tickets) && data.tickets.length > 0) {
+                                tickets.value = mergeTickets(data.tickets);
+                                localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                            }
                         }
                     } catch (error) {
-                        console.error("讀取失敗:", error);
+                        console.warn("API 讀取未完成，目前使用本地預設/快取資料:", error);
                     } finally {
                         if (!isBackground) isLoading.value = false;
                     }
