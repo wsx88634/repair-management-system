@@ -3,26 +3,25 @@
 > 任何 Agent、任何電腦接手前**必讀**；收工時**必更新**。本檔只放交接必需的精簡資訊，詳細脈絡放 Obsidian（若有 L3）。
 
 ## ⏯️ 目前做到哪
-本日所有任務全數完美完工！系統已成功發布至 Vercel 雲端，並提供手機/電腦雙端流暢體驗。
+1. 完成 [engineer.html](file:///g:/我的雲端硬碟/2026%20Antigravity/叫修輔助管理系統/engineer.html)（工程師專用看板）建置與雙發布架構。
+2. 成功為 [index.html](file:///g:/我的雲端硬碟/2026%20Antigravity/叫修輔助管理系統/index.html) 與 `engineer.html` 雙雙升級「⚡ 現場工程師快捷行動」：
+   - 🟢 **【📞 一鍵電話撥號】** (`tel:`)
+   - 🔵 **【🗺️ 一鍵 Google Maps 導航】** (支援全字串地址自動解析與門市搜尋)
+3. 完美修復 `engineer.html` 看板欄位錯位問題（左側固定 `140px` 與原生 Grid 6 狀態 100% 精準對齊）。
+4. 本次改動已全數 commit 並 push 至 GitHub (`master`) 且同步部署至 Vercel 上線。
 
-## 🚦 專案成果總結
-1. **系統功能與排版**：
-   - 434 筆歷史叫修單據全量注入，支援多重權限密碼解鎖防護（API 設定 `34252534` / 匯出報表 `54839497`）。
-   - 派單詳情 Modal 與排版 100% 擬真對齊截圖。
-   - 雙向整合「📞 一鍵撥號」與「🗺️ 一鍵 Google 地圖導航」快捷行動卡片進 `index.html` 與 `engineer.html`。
-2. **簡報與手冊 PDF 導出**：
-   - 桌面上成功導出 **《老闆簡報重點與核心優勢.pdf》** 與 **《團隊全功能操作說明書.pdf》**，A4 分頁精準切割、無瑕疵。
-3. **手機端發布 (Vercel)**：
-   - 👔 主看板：`https://repair-management-system-nu.vercel.app`
-   - 👷 工程師看板：`https://repair-management-system-nu.vercel.app/engineer.html`
+## 🚦 目前發布與網址
+- 👔 **主看板 (總管/調度員)**：`https://repair-management-system-nu.vercel.app`
+- 👷 **工程師看板**：`https://repair-management-system-nu.vercel.app/engineer.html`
 
-## ➡️ 下一步
-預祝明日開會簡報大獲全勝！隨時準備協助後續營運需求。
+## ➡️ 下一步與待辦事項
+- **預祝會議簡報順利成功！**
+- 未來可依營運需求評估是否啟用工程師身份鎖定方案（專屬網址參數 `?name=...` / 4 位數 PIN 碼鎖定 / 個人視角工作台）。
 
 ## ⚠️ 注意事項
-所有更動均已 commit 並 push 到 GitHub `wsx88634/repair-management-system`。
+- 雙看板（總管版與工程師版）共享同一個 Google Apps Script API 雲端資料庫，兩邊修改會即時同步。
 
 ## 🕐 最後更新
-- 時間：2026-07-29 03:03 (收工)
+- 時間：2026-07-29 03:06 (收工完畢)
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
 - Git push：✅ 已推
