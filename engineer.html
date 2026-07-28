@@ -543,7 +543,7 @@
 
         const App = {
             setup() {
-                const statuses = ["未執行", "執行中", "未完成 另約時間", "報價", "完修", "取消叫修"];
+                const statuses = ["未執行", "未完成 / 另約時間", "報價", "完修", "取消叫修"];
                 
                 // 本地快取優先與預設保底
                 const localEngs = localStorage.getItem("local_repair_engineers_v2");
@@ -669,6 +669,11 @@
                                     attachmentsList = inc.attachments ? [inc.attachments] : [];
                                 }
                             }
+                        }
+
+                        let safeStatus = inc.status || '未執行';
+                        if (["零件到達/待處理", "未完成 另約時間", "處理中", "執行中"].includes(safeStatus)) {
+                            safeStatus = "未完成 / 另約時間";
                         }
 
                         if (local && (isSaving.value || selectedTicket.value?.id === inc.id)) {
