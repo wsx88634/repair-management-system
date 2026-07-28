@@ -525,6 +525,8 @@
     </div>
 
     <script>
+        const { createApp, ref, reactive, nextTick, watch, onMounted, computed } = Vue;
+
         const defaultEngineers = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
         const defaultTickets = [
             {"id": "T-9612", "reportTime": "2026-07-20", "customer": "全家-左營海訓店", "model": "XS", "engineer": "劉明忠 Yuie", "slaDays": 30, "status": "未執行", "completedDate": "", "quoteState": "", "isArchived": false, "details": "沒有在rational網路平台裡面\n電話：07-5812345\n地址：高雄市左營區海邊路100號", "attachments": []},
