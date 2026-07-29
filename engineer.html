@@ -468,9 +468,9 @@
                             <input type="file" ref="fileInput" @change="handleImageUpload" accept="image/*" class="hidden" multiple />
                         </label>
                         
-                        <div class="text-[11px] text-amber-600 bg-amber-50 p-2 rounded-lg mb-2 flex items-start gap-1.5 border border-amber-100 leading-relaxed font-semibold">
-                            <l-icon name="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></l-icon>
-                            <span>⚠️ 因免費雲端資料庫容量限制，為避免系統當機，每筆單據最多僅限上傳 1 張圖片。</span>
+                        <div class="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg mb-2 flex items-start gap-1.5 border border-blue-100 leading-relaxed font-semibold">
+                            <l-icon name="cloud-upload" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600"></l-icon>
+                            <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 5 張高清照片。</span>
                         </div>
                         
                         <div v-if="editData.attachments && editData.attachments.length > 0" class="flex flex-wrap gap-3 mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-inner min-h-[90px]">
@@ -483,7 +483,7 @@
                         </div>
                         <div v-else class="text-xs text-slate-400 mt-1 p-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
                             <l-icon name="image" class="w-6 h-6 opacity-40"></l-icon>
-                            <span>尚未夾帶任何附件圖片 (系統會自動壓縮圖片大小以節省空間)</span>
+                            <span>尚未夾帶任何附件圖片 (照片將自動存入 Google Drive 高清備份)</span>
                         </div>
                     </div>
 
