@@ -12,21 +12,28 @@
    - **雲端資料庫 100% 真實修復與還原（全量 443 筆）**：已透過 API 同步腳本，將 `imported_data.json` 中最原始、精準的 433 筆歷史叫修單據日期（如 `2026-06-04`、`2026-06-05`）搭配後續新增的 10 筆新單據，**正式一鍵推送並全量寫入官方 Google 試算表**。
    - **線上驗證**：實測再次從 API `exec?action=getData` 讀取，雲端試算表儲存與前端 `formatLocalDate` 解析之日期完全精準契合（如 `T-4233` 報修日正確顯示 `2026-06-04`），徹底解決「怎麼改都還是在跑」的長期痛點。
 
+6. **實現 Google Drive 高解析度照片儲存與 3~5 張照片上傳 (方案一)**：
+   - **高畫質 HD 解析度**：照片壓縮維度放寬至 `1600px`，品質 `0.85`，銘牌細節清晰無比。
+   - **3~5 張圖片夾帶**：放寬上限為 5 張，上傳後由 `Code.gs` 自動存入 Google Drive 的 `叫修系統照片附件` 資料夾。
+   - **試算表儲存格優化**：Sheet 中只保存短網址 (URL 陣列)，完全不膨脹 JSON 與 Sheet 50,000 字元上限。
+
 ## 🚦 目前狀態與線上驗證
-1. **單據狀態與日期 100% 準確還原並寫入雲端（全量 443 筆）**：
+1. **照片附件功能全面升級 (Google Drive 方案)**：
+   - `index.html` 與 `engineer.html` 皆已更新為可批次選取並上傳最多 5 張 HD 照片至 Google Drive。
+2. **單據狀態與日期 100% 準確還原並寫入雲端（全量 443 筆）**：
    - 全體 443 筆單據之 `reportTime` 已全部修復並更新至雲端 Google 試算表，任何讀取、儲存、同步均不會再發生日期平移。
-2. **手機 / 桌機 / 跨設備即時雙向同步**：
+3. **手機 / 桌機 / 跨設備即時雙向同步**：
    - 👔 主看板網址：`https://repair-management-system-nu.vercel.app`
    - 👷 工程師看板網址：`https://repair-management-system-nu.vercel.app/engineer.html`
    - 全團隊一致使用線上網址，任何拖曳與修改皆即時同步至 Google 雲端試算表與全裝置。
 
 ## ➡️ 下一步
-日期平移 Bug 已從雲端資料庫與前端解析雙重徹底根除，並經 API 讀取驗證還原無誤！
+使用者於 Google Apps Script (`script.google.com`) 將最新 `gas/Code.gs` 執行「新增部署」即可獲得 Google Drive 上傳完整權限。
 
 ## ⚠️ 注意事項
-所有更動均已驗證，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
+所有更動均已驗證，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master` (Commit `c1e1c47`)。
 
 ## 🕐 最後更新
-- 時間：2026-07-29 12:38
+- 時間：2026-07-30 01:21
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
-- Git push：✅ 已推
+- Git push：✅ 已推 (Commit c1e1c47)
