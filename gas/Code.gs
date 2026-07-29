@@ -152,6 +152,11 @@ function doPost(e) {
       }
     }
 
+    if (body.action === "uploadImage" && body.image) {
+      const res = saveImageToDrive(body.image, body.fileName);
+      return respondJSON(res);
+    }
+
     const { ticketSheet, sysSheet } = getDbSheets();
 
     // 1. 更新工程師團隊
@@ -226,7 +231,38 @@ function formatDateOnly(d) {
   const str = String(d).trim();
   if (!str) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  const dateObj = new Date(d);
+  const dateObj = new Date(str);
   if (isNaN(dateObj.getTime())) return str.split("T")[0].split(" ")[0];
   return Utilities.formatDate(dateObj, "GMT+8", "yyyy-MM-dd");
+}
+
+const FOLDER_NAME = "叫修系統照片附件";
+
+function getOrCreateDriveFolder() {
+  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  } else {
+    const folder = DriveApp.createFolder(FOLDER_NAME);
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return folder;
+  }
+}
+
+function saveImageToDrive(base64Data, fileName) {
+  try {
+    const folder = getOrCreateDriveFolder();
+    const contentType = base64Data.substring(5, base64Data.indexOf(';'));
+    const bytes = Utilities.base64Decode(base64Data.substring(base64Data.indexOf(',') + 1));
+    const blob = Utilities.newBlob(bytes, contentType, fileName || ("repair_img_" + new Date().getTime() + ".jpg"));
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    const fileId = file.getId();
+    // Return direct image preview URL from Google Drive CDN
+    const url = "https://lh3.googleusercontent.com/d/" + fileId;
+    return { status: "success", url: url, fileId: fileId };
+  } catch(err) {
+    return { status: "error", message: err.toString() };
+  }
 }

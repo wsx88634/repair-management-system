@@ -692,6 +692,7 @@
                                 }
                             }
                         }
+                        attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 5);
 
                         let safeStatus = normalizeStatus(inc.status || '未執行');
 
@@ -969,86 +970,71 @@
                             img.onload = () => {
                                 const canvas = document.createElement('canvas');
                                 const ctx = canvas.getContext('2d');
-                                
-                                let width = img.width;
-                                let height = img.height;
-                                let quality = 0.8; 
-
-                                const MAX_DIMENSION = 800;
+                                let width = img.width, height = img.height, quality = 0.85;
+                                const MAX_DIMENSION = 1600;
                                 if (width > height) {
-                                    if (width > MAX_DIMENSION) {
-                                        height = Math.round((height * MAX_DIMENSION) / width);
-                                        width = MAX_DIMENSION;
-                                    }
+                                    if (width > MAX_DIMENSION) { height = Math.round((height * MAX_DIMENSION) / width); width = MAX_DIMENSION; }
                                 } else {
-                                    if (height > MAX_DIMENSION) {
-                                        width = Math.round((width * MAX_DIMENSION) / height);
-                                        height = MAX_DIMENSION;
-                                    }
+                                    if (height > MAX_DIMENSION) { width = Math.round((width * MAX_DIMENSION) / height); height = MAX_DIMENSION; }
                                 }
-
-                                const getCompressed = (w, h, q) => {
-                                    canvas.width = w; canvas.height = h;
-                                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h);
-                                    ctx.drawImage(img, 0, 0, w, h);
-                                    return canvas.toDataURL('image/jpeg', q);
-                                };
-
-                                let base64 = getCompressed(width, height, quality);
-                                
-                                const MAX_CHARS = 45000; 
-                                let attempts = 0; 
-
-                                while (base64.length > MAX_CHARS && attempts < 10) {
-                                    attempts++;
-                                    quality -= 0.1;
-                                    if (quality < 0.4) {
-                                        width = Math.round(width * 0.8);
-                                        height = Math.round(height * 0.8);
-                                        quality = 0.7; 
-                                    }
-                                    base64 = getCompressed(width, height, quality);
-                                }
-
-                                if (base64.length > MAX_CHARS) {
-                                    reject(new Error("圖片過度複雜無法壓縮，請嘗試手機截圖後再上傳。"));
-                                } else {
-                                    resolve(base64);
-                                }
+                                canvas.width = width; canvas.height = height;
+                                ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, width, height);
+                                ctx.drawImage(img, 0, 0, width, height);
+                                resolve(canvas.toDataURL('image/jpeg', quality));
                             };
                             img.onerror = () => reject(new Error("讀取圖片失敗"));
                         };
                     });
                 };
 
+                const uploadImageToDrive = async (file) => {
+                    const base64 = await compressImageToSafeSize(file);
+                    if (!API_URL) return base64;
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        redirect: 'follow',
+                        mode: 'cors',
+                        credentials: 'omit',
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify({
+                            action: "uploadImage",
+                            image: base64,
+                            fileName: file.name
+                        })
+                    });
+                    const text = await res.text();
+                    const json = JSON.parse(text);
+                    if (json.status === "success" && json.url) {
+                        return json.url;
+                    } else {
+                        throw new Error(json.message || "圖片上傳至 Google Drive 失敗");
+                    }
+                };
+
                 const handleImageUpload = async (event) => {
                     const files = event.target.files;
                     if (!files || files.length === 0) return;
-                    
                     if (!editData.value.attachments) {
                         editData.value.attachments = [];
                     }
-
-                    if (editData.value.attachments.length + files.length > 1) {
+                    if (editData.value.attachments.length + files.length > 5) {
                         confirmDialog.title = "附件數量限制";
-                        confirmDialog.message = "為了確保系統穩定，每筆單據最多只能夾帶 1 張圖片喔！\n若需上傳新圖，請先點擊上方圖片右上角的 'X' 刪除舊圖。";
+                        confirmDialog.message = "每筆單據最多可夾帶 5 張照片喔！若需新增請先點擊刪除舊圖。";
                         confirmDialog.isWarning = true;
                         confirmDialog.isOpen = true;
                         event.target.value = null;
                         return;
                     }
-                    
-                    isLoading.value = true; 
-
+                    isLoading.value = true;
                     try {
                         for (let i = 0; i < files.length; i++) {
                             const file = files[i];
-                            const compressedBase64 = await compressImageToSafeSize(file);
-                            editData.value.attachments.push(compressedBase64);
+                            const imgUrl = await uploadImageToDrive(file);
+                            editData.value.attachments.push(imgUrl);
                         }
                     } catch (err) {
-                        confirmDialog.title = "圖片處理失敗";
-                        confirmDialog.message = err.message || "無法處理您上傳的圖片，請確保是標準的圖片格式 (JPG, PNG)。";
+                        confirmDialog.title = "圖片上傳失敗";
+                        confirmDialog.message = err.message || "上傳照片至 Google Drive 時發生錯誤。";
                         confirmDialog.isWarning = true;
                         confirmDialog.isOpen = true;
                     } finally {
