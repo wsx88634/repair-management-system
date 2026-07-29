@@ -60,7 +60,10 @@
                         </span>
                     </h1>
                     <div class="flex flex-wrap gap-3">
-                        <button @click="fetchData(false)" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                        <button @click="forceSyncToCloud" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20">
+                            <l-icon name="upload-cloud" class="w-4 h-4"></l-icon> 同步寫入雲端
+                        </button>
+                        <button @click="manualRefresh" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                             <l-icon name="refresh-cw" class="w-4 h-4"></l-icon> 重新整理
                         </button>
                         <button @click="openSearchModal" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-sky-600/20">
@@ -799,6 +802,26 @@
                     }
                 };
 
+                const forceSyncToCloud = () => {
+                    confirmDialog.title = "同步寫入雲端";
+                    confirmDialog.message = "確定要將目前畫面上的單據進度更新覆寫至 Google 官方雲端試算表嗎？\n更新後，手機端或其他裝置點選「重新整理」即可達到完全同步！";
+                    confirmDialog.isWarning = false;
+                    confirmDialog.onConfirm = async () => {
+                        await saveData();
+                        alert("✅ 同步成功！當前所有進度已寫入 Google 試算表，桌機與手機現在已完全同步！");
+                    };
+                    confirmDialog.isOpen = true;
+                };
+
+                const manualRefresh = async () => {
+                    await fetchData(false);
+                    if (isApiConnected.value) {
+                        alert(`✅ 已與雲端同步！成功從 Google 試算表載入最新 ${tickets.value.length} 筆單據！`);
+                    } else {
+                        alert("⚠️ 雲端連線異常，目前維持本地快取單據。");
+                    }
+                };
+
                 const getTickets = (engineer, status) => {
                     return tickets.value.filter(t => t.engineer === engineer && normalizeStatus(t.status) === status && !t.isArchived);
                 };
@@ -1033,7 +1056,7 @@
                     confirmDialog, executeConfirm, isLoading, captureBoard,
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,
-                    fetchData, isUnassignedExpanded, isApiConnected,
+                    fetchData, isUnassignedExpanded, isApiConnected, forceSyncToCloud, manualRefresh,
                     viewingImage, viewImage, closeImageViewer, handleImageUpload, removeAttachment
                 };
             }
