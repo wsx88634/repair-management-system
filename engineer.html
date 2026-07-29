@@ -461,9 +461,8 @@
 
                     <div>
                         <label class="label-style flex justify-between items-center mb-2">
-                            <span>附件圖片 (報價單、故障照片等)</span>
-                            <button type="button" @click="$refs.fileInput.click()" class="text-blue-600 hover:bg-blue-100 hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors">
-                                <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon>上傳圖片
+                            <button v-if="!editData.attachments || editData.attachments.length < 5" type="button" @click="$refs.fileInput.click()" class="text-blue-600 hover:bg-blue-100 hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors">
+                                <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon>新增 / 批次上傳 (最多5張)
                             </button>
                             <input type="file" ref="fileInput" @change="handleImageUpload" accept="image/*" class="hidden" multiple />
                         </label>
@@ -471,6 +470,12 @@
                         <div class="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg mb-2 flex items-start gap-1.5 border border-blue-100 leading-relaxed font-semibold">
                             <l-icon name="cloud-upload" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600"></l-icon>
                             <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 5 張高清照片。</span>
+                        </div>
+                        
+                        <!-- 上傳中進度提示 -->
+                        <div v-if="isUploadingImage" class="bg-amber-50 border border-amber-200/80 p-2.5 rounded-lg mb-2 text-xs text-amber-800 font-bold flex items-center gap-1.5 animate-pulse">
+                            <l-icon name="loader" class="w-3.5 h-3.5 text-amber-600 shrink-0 animate-spin"></l-icon>
+                            <span>{{ uploadProgressText }}</span>
                         </div>
                         
                         <div v-if="editData.attachments && editData.attachments.length > 0" class="flex flex-wrap gap-3 mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-inner min-h-[90px]">
@@ -563,6 +568,8 @@
                 const engineers = ref([...initialEngs]);
                 const isLoading = ref(false);
                 const isSaving = ref(false);
+                const isUploadingImage = ref(false);
+                const uploadProgressText = ref('');
                 const isApiConnected = ref(false);
                 const tickets = ref([...initialTickets]);
 
@@ -1007,7 +1014,7 @@
                     if (json.status === "success" && json.url) {
                         return json.url;
                     } else {
-                        throw new Error(json.message || "圖片上傳至 Google Drive 失敗");
+                        throw new Error(json.message || "上傳失敗：Google Apps Script 未回傳圖片 URL。請進入 GAS 編輯器點選「部署」->「管理部署作業」->「編輯」-> 選擇「新版本」完成發布！");
                     }
                 };
 
@@ -1026,8 +1033,10 @@
                         return;
                     }
                     isLoading.value = true;
+                    isUploadingImage.value = true;
                     try {
                         for (let i = 0; i < files.length; i++) {
+                            uploadProgressText.value = `正在雲端壓縮並上傳第 ${i + 1} / ${files.length} 張照片至 Google Drive...`;
                             const file = files[i];
                             const imgUrl = await uploadImageToDrive(file);
                             editData.value.attachments.push(imgUrl);
@@ -1040,6 +1049,8 @@
                     } finally {
                         event.target.value = null;
                         isLoading.value = false;
+                        isUploadingImage.value = false;
+                        uploadProgressText.value = '';
                     }
                 };
 
@@ -1056,7 +1067,8 @@
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,
                     fetchData, isUnassignedExpanded, isApiConnected, forceSyncToCloud, manualRefresh,
-                    viewingImage, viewImage, closeImageViewer, handleImageUpload, removeAttachment
+                    viewingImage, viewImage, closeImageViewer, handleImageUpload, removeAttachment,
+                    isUploadingImage, uploadProgressText
                 };
             }
         };
