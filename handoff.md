@@ -31,10 +31,10 @@
 使用者於 Google Apps Script (`script.google.com`) 點選右上角「部署」->「管理部署作業」->「編輯」-> 選擇「新版本」部署發布後，即可獲得 Google Drive 多圖批次上傳完整權限。
 
 ## ⚠️ 注意事項
-所有更動均已驗證，並準備 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
+所有更動均已驗證，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
 
 ## 🕐 最後更新
-- 時間：2026-07-30 01:38
+- 時間：2026-07-30 07:08
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
-- Git push：✅ 已準備 commit & push
+- Git push：✅ 已推 (Commit master)
 
