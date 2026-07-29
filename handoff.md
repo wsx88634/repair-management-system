@@ -3,23 +3,25 @@
 > 任何 Agent、任何電腦接手前**必讀**；收工時**必更新**。本檔只放交接必需的精簡資訊，詳細脈絡放 Obsidian（若有 L3）。
 
 ## ⏯️ 目前做到哪
-完成了工程師專用看板 (`engineer.html`) 單據狀態欄位正規化 (`normalizeStatus`)，同步內嵌 434 筆歷史與目前單據至 defaultTickets，並解決了 JS 語法截斷造成頁面空白的問題。線上網址 `https://repair-management-system-nu.vercel.app/engineer.html` 驗證完美運行！
+解決了**「用手機打開網頁讀不到 API」**的問題：
+1. **設定預設雲端 API 網址**：在 `index.html` 內加入預設的 Google Apps Script API 網址，解決手機初次打開頁面時 `localStorage` 為空導致切換成本地體驗模式的問題。
+2. **解決 iOS Safari/LINE 內建瀏覽器跨域 302 重導向限制**：在 `index.html` 與 `engineer.html` 的所有 `fetch()` (GET/POST) 加入 `{ redirect: 'follow', mode: 'cors', credentials: 'omit' }` 參數，避免手機端隱私追蹤防護或跨網域跳轉（`script.google.com` -> `script.googleusercontent.com`）被瀏覽器封鎖。
+3. **加入線上連線指示燈**：在 `engineer.html` 標題旁新增「🟢 GAS API 已連線 / 🔴 離線/本地快取」狀態徽章與連線錯誤提示。
 
 ## 🚦 目前狀態與線上驗證
-1. **單據狀態正規化（100% 不漏單）**：
-   - 將舊單據中的 `'未完成 另約時間'`、`'執行中'`、`'處理中'`、`'零件到達/待處理'` 等非標準狀態，自動映射正規化為 `"未完成 / 另約時間"` 專屬欄位。
-   - 9 位工程師（廖聖典 Max 35 筆、劉峻宇 Otto 48 筆等）的全體 434 筆單據完全對齊 5 欄看板（"未執行 / 未完成 / 報價 / 完修 / 取消叫修"）。
-2. **預設快取與 JS 語法穩健性**：
-   - 內嵌 434 筆歷史資料到 `engineer.html` 的 `defaultTickets`，離線或網路慢也能秒速載入。
-   - 採用完整單行插入並通過 `node --check` 驗證（0 語法錯誤），杜絕任何畫面空白或解析異常。
+1. **單據狀態正規化與 434 筆歷史資料（100% 完整顯示）**：
+   - 9 位工程師的全體 434 筆單據完全對齊 5 欄看板（"未執行 / 未完成 / 報價 / 完修 / 取消叫修"）。
+2. **手機 / iOS / 內建瀏覽器 API 連線相容性**：
+   - 線上正式網址：`https://repair-management-system-nu.vercel.app` 與 `/engineer.html`
+   - 手機直接開啟即可透過雲端 GAS API 同步最新單據狀態與工程師調度。
 
 ## ➡️ 下一步
-團隊可安心使用 Vercel 手機正式網址隨時隨地進行叫修管理與維修回報。預祝明天老闆展示與團隊大會順利成功！
+團隊可安心使用手機端的 Vercel 正式網址隨時隨地進行叫修管理與維修回報。預祝老闆展示與團隊大會順利成功！
 
 ## ⚠️ 注意事項
-所有更動均已通過 `node --check` 檢查，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
+所有更動均已通過 `node --check` 語法檢查，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
 
 ## 🕐 最後更新
-- 時間：2026-07-29 03:36
+- 時間：2026-07-29 10:18
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
 - Git push：✅ 已推
