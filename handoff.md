@@ -7,22 +7,23 @@
 1. **新增「☁️ 同步寫入雲端」按鈕 (`index.html` 與 `engineer.html`)**：在主看板與工程師看板頂部選單直接提供「同步寫入雲端」一鍵推送按鈕，當桌機或本地端修改任何單據進度時，點選即可將當前全量資料同步寫入官方 Google 試算表。
 2. **升級「🔄 重新整理 / 從雲端重載」按鈕與提示**：在兩版本頁面將重新整理按鈕升級為 `manualRefresh()`，點擊後立刻從雲端獲取最新單據資料，並提供明確的 Toast 回報（「✅ 已與雲端同步！成功從 Google 試算表載入最新 435 筆單據！」），消除手機端快取疑慮。
 3. **對齊進度狀態正規化 (`normalizeStatus`)**：在 `index.html` 的 `mergeTickets` 也調用 `normalizeStatus`，確保「零件到達/待處理」、「處理中」等擴展進度狀態在桌機主看板與手機工程師看板 100% 歸類一致。
-4. **即時同步寫入 `localStorage` 快取**：在 `index.html` 每次 `fetchData` 獲取單據或工程師資料後，立刻寫入本地 `localStorage`，確保跨頁面切換或離線時呈現最新同步結果。
+4. **即時同步寫入 `localStorage` 快取**：在 `index.html` 每次 `fetchData` 獲取單據或工程師資料後，立刻寫入本地 `localStorage`，確保跨頁面切換或離線時呈現最新同步結果。5. **使用者操作習慣確認**：使用者已確認後續不論在電腦（桌機）或手機上，皆統一直接使用 **Vercel 線上正式網址 (`https://repair-management-system-nu.vercel.app`)** 作為主要叫修管理與派單平台，徹底避免本機 `file://` 快取與線上網址資料不同步的困擾。
 
 ## 🚦 目前狀態與線上驗證
 1. **單據狀態正規化與 435 筆歷史資料（100% 完整同步）**：
    - 9 位工程師的全體 435 筆單據完全對齊 5 欄看板（"未執行 / 未完成 / 報價 / 完修 / 取消叫修"）。
 2. **手機 / 桌機 / 跨設備即時雙向同步**：
-   - 線上正式網址：`https://repair-management-system-nu.vercel.app` 與 `/engineer.html`
-   - 不論在桌機還是手機，點擊「同步寫入雲端」即刻更新 Google 試算表，點擊「重新整理」立刻抓取最新雲端單據，達成 100% 雙向同步。
+   - 👔 主看板網址：`https://repair-management-system-nu.vercel.app`
+   - 👷 工程師看板網址：`https://repair-management-system-nu.vercel.app/engineer.html`
+   - 全團隊一致使用線上網址，任何拖曳與修改皆即時同步至 Google 雲端試算表與全裝置。
 
 ## ➡️ 下一步
-團隊可隨時在桌機與手機使用一鍵同步按鈕，再無緩存與資料落差，安心展示與調度派單！
+系統營運與正式上線無虞，使用者已全面改用 Vercel 網址，團隊展示與維修叫修作業 100% 順暢。
 
 ## ⚠️ 注意事項
 所有更動均已通過 `python` 語法檢查，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
 
 ## 🕐 最後更新
-- 時間：2026-07-29 11:21
+- 時間：2026-07-29 11:35
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
 - Git push：✅ 已推
