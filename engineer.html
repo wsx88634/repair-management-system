@@ -736,7 +736,7 @@
                         });
                         const data = await response.json();
                         
-                        if (data.status === 'success') {
+                        if (data && (data.tickets || data.engineers || data.status === 'success')) {
                             if (data.engineers && Array.isArray(data.engineers) && data.engineers.length > 0) {
                                 engineers.value = data.engineers;
                                 localStorage.setItem("local_repair_engineers_v2", JSON.stringify(data.engineers));
