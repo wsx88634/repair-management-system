@@ -223,8 +223,10 @@ function formatDate(d) {
 
 function formatDateOnly(d) {
   if (!d) return "";
-  if (typeof d === "string" && !d.includes("T")) return d.split(" ")[0];
+  const str = String(d).trim();
+  if (!str) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   const dateObj = new Date(d);
-  if (isNaN(dateObj.getTime())) return String(d).split("T")[0];
+  if (isNaN(dateObj.getTime())) return str.split("T")[0].split(" ")[0];
   return Utilities.formatDate(dateObj, "GMT+8", "yyyy-MM-dd");
 }
