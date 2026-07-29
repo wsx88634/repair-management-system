@@ -54,6 +54,10 @@
                             <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
                         </span>
                         <span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 ml-2">最新 5 欄版</span>
+                        <span :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                            <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : 'bg-amber-500'" class="w-2 h-2 rounded-full shadow-sm"></span>
+                            {{ isApiConnected ? 'GAS API 已連線' : '離線/本地快取' }}
+                        </span>
                     </h1>
                     <div class="flex flex-wrap gap-3">
                         <button @click="fetchData(false)" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
@@ -556,6 +560,7 @@
                 const engineers = ref([...initialEngs]);
                 const isLoading = ref(false);
                 const isSaving = ref(false);
+                const isApiConnected = ref(false);
                 const tickets = ref([...initialTickets]);
 
                 const selectedTicket = ref(null);
@@ -723,7 +728,12 @@
                 const fetchData = async (isBackground = false) => {
                     if (!isBackground) isLoading.value = true;
                     try {
-                        const response = await fetch(`${API_URL}?action=getData&t=${new Date().getTime()}`);
+                        const response = await fetch(`${API_URL}?action=getData&t=${new Date().getTime()}`, {
+                            method: 'GET',
+                            redirect: 'follow',
+                            mode: 'cors',
+                            credentials: 'omit'
+                        });
                         const data = await response.json();
                         
                         if (data.status === 'success') {
@@ -735,9 +745,11 @@
                                 tickets.value = mergeTickets(data.tickets);
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
+                            isApiConnected.value = true;
                         }
                     } catch (error) {
                         console.warn("API 讀取未完成，目前使用本地預設/快取資料:", error);
+                        isApiConnected.value = false;
                     } finally {
                         if (!isBackground) isLoading.value = false;
                     }
@@ -758,6 +770,9 @@
                     try {
                         const response = await fetch(API_URL, {
                             method: "POST",
+                            redirect: 'follow',
+                            mode: 'cors',
+                            credentials: 'omit',
                             headers: { "Content-Type": "text/plain;charset=utf-8" },
                             body: JSON.stringify({
                                 action: "syncData",
@@ -770,7 +785,9 @@
                         if (resData.status !== "success") {
                             throw new Error(resData.message || "同步寫入失敗");
                         }
+                        isApiConnected.value = true;
                     } catch (error) {
+                        isApiConnected.value = false;
                         confirmDialog.title = "寫入失敗";
                         confirmDialog.message = "無法儲存資料至雲端，請檢查網路連線或稍後再試。\n" + error.message;
                         confirmDialog.isWarning = true;
@@ -1016,7 +1033,7 @@
                     confirmDialog, executeConfirm, isLoading, captureBoard,
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,
-                    fetchData, isUnassignedExpanded,
+                    fetchData, isUnassignedExpanded, isApiConnected,
                     viewingImage, viewImage, closeImageViewer, handleImageUpload, removeAttachment
                 };
             }
