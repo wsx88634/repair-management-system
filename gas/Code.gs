@@ -1,19 +1,19 @@
 /**
- * 叫修輔助管理系統 - 全功能 Apps Script 後端 API (免帳號混淆版)
+ * 叫修輔助管理系統 - 全功能 Apps Script 後端 API (免帳號混淆與防溯回增強版)
  * 部署設定提醒：
  * 1. 執行身分 (Execute as)：以我的身分執行 (Me)
  * 2. 誰可以存取 (Who has access)：任何人 (Anyone)
  */
 
-const SPREADSHEET_ID = ""; // 若留空，系統會自動在雲端硬碟建立「叫修管理系統資料庫」
+const SPREADSHEET_ID = ""; // 若指定試算表ID可精準鎖定；若留空自動選取雲端最新建立的「叫修管理系統資料庫」
 const TICKET_SHEET_NAME = "叫修單據紀錄";
 const SYSTEM_SHEET_NAME = "系統設定與團隊";
 
-// 預設工程師團隊名單 (9 位團隊成員)
+// 預設真實工程師團隊名單 (9 位團隊成員)
 const DEFAULT_ENGINEERS = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
 
 /**
- * 取得或建立主資料表
+ * 取得或建立主資料表 (自動找尋最新更新的叫修資料庫，防止讀取到舊同名表格)
  */
 function getDbSheets() {
   let ss;
@@ -21,8 +21,18 @@ function getDbSheets() {
     ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   } else {
     const files = DriveApp.getFilesByName("叫修管理系統資料庫");
-    if (files.hasNext()) {
-      ss = SpreadsheetApp.open(files.next());
+    let latestFile = null;
+    let latestTime = 0;
+    while (files.hasNext()) {
+      const file = files.next();
+      const updated = file.getLastUpdated().getTime();
+      if (updated > latestTime) {
+        latestTime = updated;
+        latestFile = file;
+      }
+    }
+    if (latestFile) {
+      ss = SpreadsheetApp.open(latestFile);
     } else {
       ss = SpreadsheetApp.create("叫修管理系統資料庫");
     }
@@ -80,12 +90,22 @@ function doGet(e) {
 
     const { ticketSheet, sysSheet } = getDbSheets();
 
-    // 讀取工程師名單
+    // 讀取工程師名單 (若系統檔為舊假名單，自動矯正為 9 位團隊成員)
     let engineers = [...DEFAULT_ENGINEERS];
     const sysData = sysSheet.getDataRange().getValues();
+    let sysEngRowIndex = -1;
     for (let i = 1; i < sysData.length; i++) {
-      if (sysData[i][0] === "engineers" && sysData[i][1]) {
-        try { engineers = JSON.parse(sysData[i][1]); } catch(ex) {}
+      if (sysData[i][0] === "engineers") {
+        sysEngRowIndex = i + 1;
+        if (sysData[i][1]) {
+          try {
+            const parsed = JSON.parse(sysData[i][1]);
+            if (Array.isArray(parsed) && parsed.length >= 8) {
+              engineers = parsed;
+            }
+          } catch(ex) {}
+        }
+        break;
       }
     }
 
@@ -160,7 +180,7 @@ function doPost(e) {
     const { ticketSheet, sysSheet } = getDbSheets();
 
     // 1. 更新工程師團隊
-    if (body.engineers && Array.isArray(body.engineers)) {
+    if (body.engineers && Array.isArray(body.engineers) && body.engineers.length > 0) {
       const sysData = sysSheet.getDataRange().getValues();
       let engRowIndex = -1;
       for (let i = 1; i < sysData.length; i++) {
@@ -177,8 +197,8 @@ function doPost(e) {
       }
     }
 
-    // 2. 更新單據資料 (全量覆寫或同步更新)
-    if (body.tickets && Array.isArray(body.tickets)) {
+    // 2. 更新單據資料 (僅在有有效單據陣列時寫入，防護空陣列全清)
+    if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
       // 保留表頭，清除舊數據
       const lastRow = ticketSheet.getLastRow();
       if (lastRow > 1) {

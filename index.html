@@ -1126,33 +1126,46 @@
                 };
 
                 const mergeTickets = (incoming) => {
-                    const localMap = new Map(tickets.value.map(t => [t.id, t]));
-                    return incoming.map(inc => {
-                        const local = localMap.get(inc.id);
-                        let safeReportDate = formatLocalDate(inc.reportTime || "");
+                    if (!incoming || !Array.isArray(incoming)) return tickets.value;
+                    const incomingMap = new Map(incoming.map(t => [String(t.id), t]));
+                    const localMap = new Map(tickets.value.map(t => [String(t.id), t]));
+
+                    const merged = incoming.map(inc => {
+                        const local = localMap.get(String(inc.id));
+                        let safeReportDate = formatLocalDate(inc.reportTime || (local ? local.reportTime : ''));
                         let safeCompletedDate = formatLocalDate(inc.completedDate || (local ? local.completedDate : '') || '');
 
-                        let safeStatus = normalizeStatus(inc.status || "未執行");
+                        let safeStatus = normalizeStatus(inc.status || (local ? local.status : "未執行"));
 
                         let safeAttachments = [];
-                        let rawAttachments = inc.attachments !== undefined ? inc.attachments : (local ? local.attachments : []);
+                        let rawAttachments = (inc.attachments && inc.attachments.length > 0) ? inc.attachments : (local ? local.attachments : []);
                         if (Array.isArray(rawAttachments)) safeAttachments = rawAttachments;
                         else if (typeof rawAttachments === 'string') {
                             try { safeAttachments = JSON.parse(rawAttachments); } catch(e) { safeAttachments = [rawAttachments]; }
                         }
 
-                        safeAttachments = safeAttachments.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 5);
+                        safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 5);
 
                         return {
+                            ...local,
                             ...inc,
                             status: safeStatus,
                             reportTime: safeReportDate,
                             completedDate: safeCompletedDate,
                             quoteState: inc.quoteState || (local ? local.quoteState : '') || '',
-                            isArchived: inc.isArchived || (local ? local.isArchived : false) || false,
+                            isArchived: inc.isArchived !== undefined ? inc.isArchived : (local ? local.isArchived : false),
+                            details: inc.details || (local ? local.details : '') || '',
                             attachments: safeAttachments
                         };
                     });
+
+                    tickets.value.forEach(local => {
+                        if (!incomingMap.has(String(local.id))) {
+                            merged.push(local);
+                        }
+                    });
+
+                    return merged;
                 };
 
                 const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
