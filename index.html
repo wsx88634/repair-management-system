@@ -519,7 +519,7 @@
                                         <div class="flex flex-wrap gap-2">
                                             <img v-for="(img, idx) in ticket.attachments" :key="idx" :src="img" 
                                                 class="w-16 h-16 object-cover rounded border border-amber-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity" 
-                                                @click="viewImage(img)" title="點擊放大觀看" />
+                                                @click="viewImage(img, ticket.attachments)" title="點擊放大觀看" />
                                         </div>
                                     </div>
                                 </div>
@@ -684,7 +684,7 @@
                             <!-- 有圖片時 -->
                             <div v-else class="flex flex-wrap gap-4 items-center justify-center w-full">
                                 <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative group w-36 h-28 rounded-xl border border-slate-300 overflow-hidden shadow-sm bg-white">
-                                    <img :src="img" class="w-full h-full object-cover cursor-pointer" @click="viewImage(img)" title="點擊放大觀看" />
+                                    <img :src="img" class="w-full h-full object-cover cursor-pointer" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
                                     <button @click="removeAttachment(idx)" class="absolute top-1.5 right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors" title="刪除圖片">
                                         <l-icon name="x" class="w-4 h-4"></l-icon>
                                     </button>
@@ -885,13 +885,52 @@
             </div>
         </div>
 
-        <!-- 圖片全螢幕預覽視窗 -->
-        <div v-if="viewingImage" class="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-md" @click="viewingImage = null">
-            <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" @click.stop>
-                <img :src="viewingImage" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" />
-                <button @click="viewingImage = null" class="absolute -top-10 right-0 text-white hover:text-slate-300 text-xl font-bold bg-white/20 p-2 rounded-full backdrop-blur-sm">
-                    <l-icon name="x" class="w-6 h-6"></l-icon>
+        <!-- 圖片全螢幕預覽視窗 (含左右切換、滑動手勢與鍵盤切換) -->
+        <div v-if="viewingImage" 
+             class="fixed inset-0 bg-black/90 z-[100] flex flex-col items-center justify-center p-4 backdrop-blur-md select-none transition-all duration-200" 
+             @click="viewingImage = null"
+             @touchstart="handleTouchStart"
+             @touchend="handleTouchEnd">
+            
+            <!-- 頂部計數器與關閉按鈕 -->
+            <div class="absolute top-4 left-4 md:top-6 md:left-6 text-white/90 text-sm font-bold bg-white/10 px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/10 z-[105]" @click.stop v-if="imageList && imageList.length > 1">
+                📷 {{ imageIndex + 1 }} / {{ imageList.length }}
+            </div>
+
+            <button @click="viewingImage = null" class="absolute top-4 right-4 md:top-6 md:right-6 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full backdrop-blur-md transition-all shadow-lg border border-white/10 z-[105]" title="關閉 (Esc)">
+                <l-icon name="x" class="w-6 h-6"></l-icon>
+            </button>
+
+            <!-- 主圖片與左右切換箭頭 -->
+            <div class="relative max-w-5xl max-h-[80vh] flex items-center justify-center w-full px-2" @click.stop>
+                <!-- 左箭頭按鈕 -->
+                <button v-if="imageList && imageList.length > 1" 
+                        @click.stop="prevImage" 
+                        class="absolute left-2 md:left-4 z-[105] text-white bg-black/50 hover:bg-black/80 p-3 rounded-full backdrop-blur-md transition-all border border-white/20 shadow-xl hover:scale-110 active:scale-95"
+                        title="上一張 (左方向鍵 / 往右滑)">
+                    <l-icon name="chevron-left" class="w-6 h-6 md:w-8 md:h-8"></l-icon>
                 </button>
+
+                <!-- 圖片主體 -->
+                <img :src="viewingImage" class="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl transition-all duration-200" />
+
+                <!-- 右箭頭按鈕 -->
+                <button v-if="imageList && imageList.length > 1" 
+                        @click.stop="nextImage" 
+                        class="absolute right-2 md:right-4 z-[105] text-white bg-black/50 hover:bg-black/80 p-3 rounded-full backdrop-blur-md transition-all border border-white/20 shadow-xl hover:scale-110 active:scale-95"
+                        title="下一張 (右方向鍵 / 往左滑)">
+                    <l-icon name="chevron-right" class="w-6 h-6 md:w-8 md:h-8"></l-icon>
+                </button>
+            </div>
+
+            <!-- 底部縮圖列 (有多張圖片時顯示) -->
+            <div v-if="imageList && imageList.length > 1" class="mt-4 flex items-center gap-2 overflow-x-auto max-w-full p-2 bg-black/40 rounded-xl border border-white/10 backdrop-blur-md z-[105]" @click.stop>
+                <img v-for="(img, idx) in imageList" 
+                     :key="idx" 
+                     :src="img" 
+                     @click="imageIndex = idx; viewingImage = img"
+                     class="w-12 h-12 md:w-14 md:h-14 object-cover rounded-lg cursor-pointer transition-all border-2"
+                     :class="idx === imageIndex ? 'border-blue-500 scale-105 opacity-100 shadow-md ring-2 ring-blue-400' : 'border-transparent opacity-50 hover:opacity-80'" />
             </div>
         </div>
 
@@ -978,6 +1017,8 @@
                 const openNotes = ref(new Set());
 
                 const viewingImage = ref(null);
+                const imageList = ref([]);
+                const imageIndex = ref(0);
 
                 const confirmDialog = reactive({
                     isOpen: false,
@@ -1340,9 +1381,10 @@
                 };
 
                 onMounted(() => {
+                    window.addEventListener('keydown', handleKeyDown);
                     fetchData(false);
                     setInterval(() => {
-                        if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen) {
+                        if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen && !viewingImage.value) {
                             fetchData(true);
                         }
                     }, 60000);
@@ -1646,7 +1688,64 @@
                     }, 300);
                 };
 
-                const viewImage = (imgSrc) => { viewingImage.value = imgSrc; };
+                const viewImage = (imgOrList, indexOrList) => {
+                    if (Array.isArray(imgOrList)) {
+                        imageList.value = imgOrList;
+                        imageIndex.value = typeof indexOrList === 'number' ? indexOrList : 0;
+                    } else if (typeof imgOrList === 'string') {
+                        if (Array.isArray(indexOrList)) {
+                            imageList.value = indexOrList;
+                            const idx = indexOrList.indexOf(imgOrList);
+                            imageIndex.value = idx >= 0 ? idx : 0;
+                        } else {
+                            imageList.value = [imgOrList];
+                            imageIndex.value = 0;
+                        }
+                    } else {
+                        imageList.value = [];
+                        imageIndex.value = 0;
+                    }
+                    viewingImage.value = imageList.value[imageIndex.value] || (typeof imgOrList === 'string' ? imgOrList : null);
+                };
+
+                const prevImage = () => {
+                    if (!imageList.value || imageList.value.length <= 1) return;
+                    imageIndex.value = (imageIndex.value - 1 + imageList.value.length) % imageList.value.length;
+                    viewingImage.value = imageList.value[imageIndex.value];
+                };
+
+                const nextImage = () => {
+                    if (!imageList.value || imageList.value.length <= 1) return;
+                    imageIndex.value = (imageIndex.value + 1) % imageList.value.length;
+                    viewingImage.value = imageList.value[imageIndex.value];
+                };
+
+                let touchStartX = 0;
+                let touchStartY = 0;
+                const handleTouchStart = (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        touchStartX = e.touches[0].clientX;
+                        touchStartY = e.touches[0].clientY;
+                    }
+                };
+
+                const handleTouchEnd = (e) => {
+                    if (e.changedTouches && e.changedTouches.length > 0) {
+                        const deltaX = e.changedTouches[0].clientX - touchStartX;
+                        const deltaY = e.changedTouches[0].clientY - touchStartY;
+                        if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                            if (deltaX < 0) nextImage();
+                            else prevImage();
+                        }
+                    }
+                };
+
+                const handleKeyDown = (e) => {
+                    if (!viewingImage.value) return;
+                    if (e.key === 'ArrowLeft') prevImage();
+                    else if (e.key === 'ArrowRight') nextImage();
+                    else if (e.key === 'Escape') viewingImage.value = null;
+                };
                 const removeAttachment = (index) => {
                     if (editData.value && editData.value.attachments) {
                         editData.value.attachments.splice(index, 1);
@@ -1750,7 +1849,7 @@
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     isUnassignedExpanded, isQuoteExpanded,
-                    viewingImage, viewImage, handleImageUpload, removeAttachment,
+                    viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
                     apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
