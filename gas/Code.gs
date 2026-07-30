@@ -9,8 +9,8 @@ const SPREADSHEET_ID = ""; // 若留空，系統會自動在雲端硬碟建立�
 const TICKET_SHEET_NAME = "叫修單據紀錄";
 const SYSTEM_SHEET_NAME = "系統設定與團隊";
 
-// 預設工程師團隊名單
-const DEFAULT_ENGINEERS = ["小張", "老王", "阿豪", "陳技師"];
+// 預設工程師團隊名單 (9 位團隊成員)
+const DEFAULT_ENGINEERS = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
 
 /**
  * 取得或建立主資料表
