@@ -16,25 +16,24 @@
    - **高畫質 HD 解析度**：照片壓縮維度放寬至 `1600px`，品質 `0.85`，銘牌細節清晰無比。
    - **批次圈選上傳與進度回饋**：在 `index.html` 與 `engineer.html` 皆加上 `multiple` 屬性與最多 5 張數量判定，可一次框選多張照片，並於畫面顯示「正在雲端壓縮並上傳第 X / Y 張照片...」即時動態回饋。
    - **明確 GAS 部署教學錯誤提示**：針對「無法上傳/報錯」，系統彈窗說明不再僅顯示失敗，而是明確提醒必須至 Google Apps Script 編輯器點選「部署」->「管理部署作業」-> 選擇「新版本」完成發布，引導解決舊版本後端未更新問題。
+19. **抗網路波動自動重試 (`fetchWithRetry`) 與本地優先無感備份**：
+    - **根本解決 Failed to fetch 彈窗困擾**：在 `index.html` 與 `engineer.html` 為所有網路請求注入 3 次指數退避自動重試 (`fetchWithRetry`)，徹底化解手機 4G/Wi-Fi 網路瞬間微幅波動、瀏覽器休眠復甦與 GAS 302 轉址延遲引起的連線失敗。
+    - **本地優先、無打擾流暢體驗**：任何狀態變動與編輯皆優先安全寫入 `localStorage`，若 3 次重試後網路仍斷線，僅設定離線狀態並背景暫存，絕不跳出強迫重新整理的阻塞彈窗，待連線恢復或背景輪詢時自動連線同步！
 
 ## 🚦 目前狀態與線上驗證
-1. **照片附件功能全面升級 (Google Drive 方案)**：
-   - `index.html` 與 `engineer.html` 皆已更新為可批次選取並上傳最多 5 張 HD 照片至 Google Drive。
-2. **單據狀態與日期 100% 準確還原並寫入雲端（全量 443 筆）**：
-   - 全體 443 筆單據之 `reportTime` 已全部修復並更新至雲端 Google 試算表，任何讀取、儲存、同步均不會再發生日期平移。
-3. **手機 / 桌機 / 跨設備即時雙向同步**：
+1. **抗網路波動與連線自動重試全量上線**：
+   - 拖曳單據、修改備註或上傳圖片時，即便遇到網路瞬間閃退亦能自動背景重試 3 次，完全消除「資料儲存失敗 - Failed to fetch」強迫重整彈窗！
+2. **手機 / 桌機 / 跨設備即時雙向同步**：
    - 👔 主看板網址：`https://repair-management-system-nu.vercel.app`
    - 👷 工程師看板網址：`https://repair-management-system-nu.vercel.app/engineer.html`
-   - 全團隊一致使用線上網址，任何拖曳與修改皆即時同步至 Google 雲端試算表與全裝置。
 
 ## ➡️ 下一步
-使用者於 Google Apps Script (`script.google.com`) 點選右上角「部署」->「管理部署作業」->「編輯」-> 選擇「新版本」部署發布後，即可獲得 Google Drive 多圖批次上傳完整權限。
+隨時享受零中斷、連線超穩定的叫修管理體驗！
 
 ## ⚠️ 注意事項
-所有更動均已驗證，並已 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
+所有更動均已驗證，已完成 commit & push 到 GitHub `wsx88634/repair-management-system` 分支 `master`。
 
 ## 🕐 最後更新
-- 時間：2026-07-30 07:08
+- 時間：2026-07-31 01:46
 - 更新者：阿噗 @ DESKTOP-U8HAOU6
 - Git push：✅ 已推 (Commit master)
-

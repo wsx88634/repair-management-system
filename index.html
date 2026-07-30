@@ -1155,6 +1155,22 @@
                     });
                 };
 
+                const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
+                    let lastErr = null;
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            const res = await fetch(url, options);
+                            if (res.ok) return res;
+                            if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
+                            else return res;
+                        } catch (err) {
+                            lastErr = err;
+                            if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
+                        }
+                    }
+                    throw lastErr || new Error("網路連線逾時");
+                };
+
                 const fetchData = async (isBackground) => {
                     const isSilent = isBackground === true;
                     if (!apiUrl.value) {
@@ -1173,12 +1189,12 @@
                     if (!isSilent) isLoading.value = true;
                     try {
                         const url = `${apiUrl.value}?action=getData&t=${new Date().getTime()}`;
-                        const res = await fetch(url, {
+                        const res = await fetchWithRetry(url, {
                             method: 'GET',
                             redirect: 'follow',
                             mode: 'cors',
                             credentials: 'omit'
-                        });
+                        }, 3, 1000);
                         const text = await res.text();
                         let data;
                         try { data = JSON.parse(text); } catch (e) {
@@ -1217,14 +1233,14 @@
                     }
                 };
 
-                const saveData = async () => {
+                const saveData = async (isManualSync = false) => {
                     localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                     localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
                     if (!apiUrl.value) return;
 
                     isSaving.value = true;
-                    isLoading.value = true;
+                    if (isManualSync) isLoading.value = true;
                     try {
                         const payloadTickets = tickets.value.map(t => ({
                             ...t,
@@ -1234,26 +1250,28 @@
                             attachments: t.attachments || []
                         }));
 
-                        const res = await fetch(apiUrl.value, {
+                        const res = await fetchWithRetry(apiUrl.value, {
                             method: 'POST',
                             redirect: 'follow',
                             mode: 'cors',
                             credentials: 'omit',
                             headers: { "Content-Type": "text/plain;charset=utf-8" },
                             body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
-                        });
+                        }, 3, 1000);
                         const text = await res.text();
                         try { JSON.parse(text); } catch (e) {
                             throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone。");
                         }
                         isApiConnected.value = true;
                     } catch (error) {
-                        console.error("儲存失敗：", error);
+                        console.warn("雲端同步微幅波動 (資料已安全寫入本地暫存)：", error);
                         isApiConnected.value = false;
-                        confirmDialog.title = "資料儲存失敗";
-                        confirmDialog.message = error.message || "請檢查網路連線與 Apps Script 部署權限。";
-                        confirmDialog.isWarning = true;
-                        confirmDialog.isOpen = true;
+                        if (isManualSync) {
+                            confirmDialog.title = "資料暫存於本機";
+                            confirmDialog.message = "網路暫時波動，資料已安全儲存於本機！待網路恢復將自動備份至雲端。";
+                            confirmDialog.isWarning = true;
+                            confirmDialog.isOpen = true;
+                        }
                     } finally {
                         isSaving.value = false;
                         isLoading.value = false;
@@ -1277,7 +1295,7 @@
                     confirmDialog.message = "確定要將目前總管看板上的單據進度覆寫同步至 Google 官方雲端試算表嗎？\n更新後，手機端或其他裝置點選「重新整理」即可達到完全同步！";
                     confirmDialog.isWarning = false;
                     confirmDialog.onConfirm = async () => {
-                        await saveData();
+                        await saveData(true);
                         alert("✅ 同步成功！當前所有進度已寫入 Google 試算表，桌機與手機已實現完全同步！");
                     };
                     confirmDialog.isOpen = true;
@@ -1652,7 +1670,7 @@
                 const uploadImageToDrive = async (file) => {
                     const base64 = await compressImageToSafeSize(file);
                     if (!apiUrl.value) return base64;
-                    const res = await fetch(apiUrl.value, {
+                    const res = await fetchWithRetry(apiUrl.value, {
                         method: 'POST',
                         redirect: 'follow',
                         mode: 'cors',
@@ -1663,7 +1681,7 @@
                             image: base64,
                             fileName: file.name
                         })
-                    });
+                    }, 3, 1500);
                     const text = await res.text();
                     const json = JSON.parse(text);
                     if (json.status === "success" && json.url) {

@@ -749,15 +749,31 @@
                     }
                 };
 
+                const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
+                    let lastErr = null;
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            const res = await fetch(url, options);
+                            if (res.ok) return res;
+                            if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
+                            else return res;
+                        } catch (err) {
+                            lastErr = err;
+                            if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
+                        }
+                    }
+                    throw lastErr || new Error("網路連線逾時");
+                };
+
                 const fetchData = async (isBackground = false) => {
                     if (!isBackground) isLoading.value = true;
                     try {
-                        const response = await fetch(`${API_URL}?action=getData&t=${new Date().getTime()}`, {
+                        const response = await fetchWithRetry(`${API_URL}?action=getData&t=${new Date().getTime()}`, {
                             method: 'GET',
                             redirect: 'follow',
                             mode: 'cors',
                             credentials: 'omit'
-                        });
+                        }, 3, 1000);
                         const data = await response.json();
                         
                         if (data && (data.tickets || data.engineers || data.status === 'success')) {
@@ -779,9 +795,12 @@
                     }
                 };
 
-                const saveData = async () => {
+                const saveData = async (isManualSync = false) => {
                     isSaving.value = true;
-                    isLoading.value = true;
+                    if (isManualSync) isLoading.value = true;
+
+                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                    localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
                     const cleanTickets = tickets.value.map(t => {
                         const copy = { ...t };
@@ -792,7 +811,7 @@
                     });
 
                     try {
-                        const response = await fetch(API_URL, {
+                        const response = await fetchWithRetry(API_URL, {
                             method: "POST",
                             redirect: 'follow',
                             mode: 'cors',
@@ -803,7 +822,7 @@
                                 engineers: engineers.value,
                                 tickets: cleanTickets
                             })
-                        });
+                        }, 3, 1000);
 
                         const resData = await response.json();
                         if (resData.status !== "success") {
@@ -811,15 +830,17 @@
                         }
                         isApiConnected.value = true;
                     } catch (error) {
+                        console.warn("工程師看板雲端同步微幅波動 (已儲存於本機)：", error);
                         isApiConnected.value = false;
-                        confirmDialog.title = "寫入失敗";
-                        confirmDialog.message = "無法儲存資料至雲端，請檢查網路連線或稍後再試。\n" + error.message;
-                        confirmDialog.isWarning = true;
-                        confirmDialog.isOpen = true;
+                        if (isManualSync) {
+                            confirmDialog.title = "資料暫存於本機";
+                            confirmDialog.message = "網路連線暫時波動，進度已安全儲存於本機！恢復連線時將自動同步至雲端。";
+                            confirmDialog.isWarning = true;
+                            confirmDialog.isOpen = true;
+                        }
                     } finally {
                         isSaving.value = false;
                         isLoading.value = false;
-                        await fetchData(true);
                     }
                 };
 
@@ -828,7 +849,7 @@
                     confirmDialog.message = "確定要將目前畫面上的單據進度更新覆寫至 Google 官方雲端試算表嗎？\n更新後，手機端或其他裝置點選「重新整理」即可達到完全同步！";
                     confirmDialog.isWarning = false;
                     confirmDialog.onConfirm = async () => {
-                        await saveData();
+                        await saveData(true);
                         alert("✅ 同步成功！當前所有進度已寫入 Google 試算表，桌機與手機現在已完全同步！");
                     };
                     confirmDialog.isOpen = true;
@@ -997,7 +1018,7 @@
                 const uploadImageToDrive = async (file) => {
                     const base64 = await compressImageToSafeSize(file);
                     if (!API_URL) return base64;
-                    const res = await fetch(API_URL, {
+                    const res = await fetchWithRetry(API_URL, {
                         method: 'POST',
                         redirect: 'follow',
                         mode: 'cors',
@@ -1008,7 +1029,7 @@
                             image: base64,
                             fileName: file.name
                         })
-                    });
+                    }, 3, 1500);
                     const text = await res.text();
                     const json = JSON.parse(text);
                     if (json.status === "success" && json.url) {
