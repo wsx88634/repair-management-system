@@ -461,15 +461,15 @@
 
                     <div>
                         <label class="label-style flex justify-between items-center mb-2">
-                            <button v-if="!editData.attachments || editData.attachments.length < 5" type="button" @click="$refs.fileInput.click()" class="text-blue-600 hover:bg-blue-100 hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors">
-                                <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon>新增 / 批次上傳 (最多5張)
+                            <button v-if="!editData.attachments || editData.attachments.length < 10" type="button" @click="$refs.fileInput.click()" class="text-blue-600 hover:bg-blue-100 hover:text-blue-800 font-bold text-xs flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 transition-colors">
+                                <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon>新增 / 批次上傳 (最多10張)
                             </button>
                             <input type="file" ref="fileInput" @change="handleImageUpload" accept="image/*" class="hidden" multiple />
                         </label>
                         
                         <div class="text-[11px] text-blue-700 bg-blue-50 p-2 rounded-lg mb-2 flex items-start gap-1.5 border border-blue-100 leading-relaxed font-semibold">
                             <l-icon name="cloud-upload" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-blue-600"></l-icon>
-                            <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 5 張高清照片。</span>
+                            <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 10 張高清照片。</span>
                         </div>
                         
                         <!-- 上傳中進度提示 -->
@@ -740,7 +740,7 @@
                                 }
                             }
                         }
-                        attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 5);
+                        attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
                         let safeStatus = normalizeStatus(inc.status || '未執行');
 
@@ -1141,9 +1141,9 @@
                     if (!editData.value.attachments) {
                         editData.value.attachments = [];
                     }
-                    if (editData.value.attachments.length + files.length > 5) {
+                    if (editData.value.attachments.length + files.length > 10) {
                         confirmDialog.title = "附件數量限制";
-                        confirmDialog.message = "每筆單據最多可夾帶 5 張照片喔！若需新增請先點擊刪除舊圖。";
+                        confirmDialog.message = "每筆單據最多可夾帶 10 張照片喔！若需新增請先點擊刪除舊圖。";
                         confirmDialog.isWarning = true;
                         confirmDialog.isOpen = true;
                         event.target.value = null;
