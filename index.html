@@ -208,8 +208,8 @@
                                 <l-icon name="calendar" class="w-4 h-4 shrink-0"></l-icon>
                                 <span>{{ ticket.reportTime }}</span>
                             </div>
-                            <div class="font-bold text-slate-800 truncate text-base flex-1" :title="ticket.customer">{{ ticket.customer }}</div>
-                            <div class="text-sm text-slate-600 truncate flex-1 font-medium" :title="ticket.model">
+                            <div class="font-bold text-slate-800 truncate text-base flex-1 pb-[2px]" :title="ticket.customer">{{ ticket.customer }}</div>
+                            <div class="text-sm text-slate-600 truncate flex-1 font-medium pb-[2px]" :title="ticket.model">
                                 <span class="text-slate-400 mr-1 text-xs">機型:</span>{{ ticket.model || "未填寫" }}
                             </div>
                             <div v-if="ticket.attachments && ticket.attachments.length > 0" class="shrink-0 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -287,7 +287,7 @@
                                 <l-icon name="calendar" class="w-4 h-4 shrink-0"></l-icon>
                                 <span>{{ ticket.reportTime }}</span>
                             </div>
-                            <div class="font-bold text-slate-800 truncate text-base flex-1" :title="ticket.customer">{{ ticket.customer }}</div>
+                            <div class="font-bold text-slate-800 truncate text-base flex-1 pb-[2px]" :title="ticket.customer">{{ ticket.customer }}</div>
                             <div class="text-sm font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 flex items-center gap-1.5 shrink-0 shadow-sm">
                                 <l-icon name="user" class="w-3.5 h-3.5"></l-icon>
                                 {{ ticket.engineer }}
@@ -1759,7 +1759,7 @@
                     isLoading.value = true;
                     setTimeout(() => {
                         html2canvas(sectionEl, {
-                            useCORS: true, backgroundColor: '#F8FAFC', scale: 2, logging: false
+                            useCORS: true, backgroundColor: '#F8FAFC', scale: 3, logging: false
                         }).then(canvas => {
                             const link = document.createElement('a');
                             link.setAttribute('download', `${prefix}_${new Date().toISOString().split('T')[0]}.jpg`);
@@ -1780,7 +1780,7 @@
                     isLoading.value = true;
                     setTimeout(() => {
                         html2canvas(boardEl, {
-                            useCORS: true, backgroundColor: '#F8FAFC', scale: 2, logging: false
+                            useCORS: true, backgroundColor: '#F8FAFC', scale: 3, logging: false
                         }).then(canvas => {
                             const link = document.createElement('a');
                             link.setAttribute('download', `主看板狀態_${new Date().toISOString().split('T')[0]}.jpg`);
