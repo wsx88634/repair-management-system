@@ -55,7 +55,8 @@ function getDbSheets() {
       "是否封存 (isArchived)",
       "詳細備註與資訊 (details)",
       "附件圖片 (attachments JSON)",
-      "最後更新時間"
+      "最後更新時間",
+      "問題狀況 (issue)"
     ];
     ticketSheet.appendRow(headers);
     ticketSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
@@ -127,18 +128,22 @@ function doGet(e) {
           }
         }
 
+        const detailsStr = String(row[10] || "");
+        const firstLineIssue = detailsStr.trim() ? detailsStr.trim().split('\n')[0].trim() : "";
+
         tickets.push({
           id: String(row[0]),
           reportTime: row[1] ? formatDateOnly(row[1]) : "",
           customer: String(row[2] || ""),
           model: String(row[3] || ""),
+          issue: (row[13] !== undefined && String(row[13]).trim() !== "") ? String(row[13]) : firstLineIssue,
           engineer: String(row[4] || "未指派"),
           slaDays: Number(row[5]) || 3,
           status: String(row[6] || "未執行"),
           completedDate: row[7] ? formatDateOnly(row[7]) : "",
           quoteState: String(row[8] || ""),
           isArchived: Boolean(row[9] === true || row[9] === "TRUE" || row[9] === "true"),
-          details: String(row[10] || ""),
+          details: detailsStr,
           attachments: attachments
         });
       }
@@ -202,7 +207,7 @@ function doPost(e) {
       // 保留表頭，清除舊數據
       const lastRow = ticketSheet.getLastRow();
       if (lastRow > 1) {
-        ticketSheet.getRange(2, 1, lastRow - 1, 13).clearContent();
+        ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
       }
 
       const rowsToAppend = body.tickets.map(t => [
@@ -218,11 +223,12 @@ function doPost(e) {
         t.isArchived ? true : false,
         t.details || "",
         JSON.stringify(t.attachments || []),
-        formatDate(new Date())
+        formatDate(new Date()),
+        t.issue || ""
       ]);
 
       if (rowsToAppend.length > 0) {
-        ticketSheet.getRange(2, 1, rowsToAppend.length, 13).setValues(rowsToAppend);
+        ticketSheet.getRange(2, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
       }
     }
 

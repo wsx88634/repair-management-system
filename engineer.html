@@ -179,6 +179,10 @@
                                 <div class="pr-2">
                                     <div class="font-bold text-base text-slate-800 truncate leading-tight" :title="ticket.customer">{{ ticket.customer }}</div>
                                     <div class="text-sm text-slate-500 mt-1.5 truncate font-medium" :title="ticket.model">{{ ticket.model || "未填寫機型" }}</div>
+                                    <div class="text-xs font-bold text-amber-800 bg-amber-50/90 border border-amber-200/80 px-2 py-1 rounded-lg mt-1.5 truncate flex items-center gap-1" :title="ticket.issue || parseDetails(ticket.details).issue || ticket.details?.split('\n')[0]">
+                                        <l-icon name="alert-circle" class="w-3.5 h-3.5 text-amber-600 shrink-0"></l-icon>
+                                        <span class="truncate">{{ ticket.issue || parseDetails(ticket.details).issue || ticket.details?.split('\n')[0] || '未填寫問題' }}</span>
+                                    </div>
                                     
                                     <div class="mt-2.5 flex items-center gap-3">
                                         <div class="text-xs flex items-center gap-1.5 transition-colors" :class="isOverdue(ticket) ? 'text-red-600 font-black tracking-wide' : 'text-slate-400 font-medium'">
@@ -412,15 +416,26 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
-                        <div class="md:col-span-2">
-                            <label class="label-style">客戶名稱</label>
-                            <input v-model="editData.customer" class="input-style mt-1" />
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="label-style text-blue-600">* 客戶名稱</label>
+                            <input v-model="editData.customer" class="input-style mt-1" required />
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="label-style">機型</label>
-                            <input v-model="editData.model" class="input-style mt-1" />
+                        <div>
+                            <label class="label-style text-blue-600">* 機型</label>
+                            <input v-model="editData.model" class="input-style mt-1" required />
                         </div>
+                        <div>
+                            <label class="label-style text-blue-600">* 問題狀況</label>
+                            <input 
+                                v-model="editData.issue" 
+                                @input="onEditIssueInput"
+                                placeholder="自動帶入詳細資訊第一行"
+                                class="input-style mt-1" 
+                                required 
+                            />
+                        </div>
+                    </div>
                         
                         <div>
                             <label class="label-style">報修日期</label>
@@ -494,7 +509,7 @@
 
                     <div>
                         <label class="label-style">詳細備註與其他資訊</label>
-                        <textarea v-model="editData.details" rows="6" class="input-style mt-1 resize-y custom-scrollbar text-sm leading-relaxed" placeholder="聯絡人、電話、地址、詳細故障原因..."></textarea>
+                        <textarea v-model="editData.details" @input="onEditDetailsInput" rows="6" class="input-style mt-1 resize-y custom-scrollbar text-sm leading-relaxed" placeholder="聯絡人、電話、地址、詳細故障原因 (第一行將自動帶入問題狀況)..."></textarea>
                     </div>
                 </div>
 
@@ -637,12 +652,16 @@
                 };
 
                 const parseDetails = (details) => {
+                    let issue = extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/);
+                    if (!issue && details && details.trim()) {
+                        issue = details.trim().split('\n')[0].trim();
+                    }
                     return {
                         contact: extractField(details, /(?:聯絡人|聯絡|姓名)[：:\s]*([^\n]+)/),
                         phone: extractField(details, /(?:電話|手機|聯絡方式)[：:\s]*([^\n]+)/),
                         address: extractField(details, /(?:地址|地點)[：:\s]*([^\n]+)/),
                         warranty: extractField(details, /(?:保固狀態|保固)[：:\s]*([^\n]+)/),
-                        issue: extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/)
+                        issue: issue
                     };
                 };
 
@@ -741,6 +760,8 @@
                             }
                         }
                         attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
+
+                        let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
 
                         let safeStatus = normalizeStatus(inc.status || '未執行');
 
@@ -958,7 +979,27 @@
                     }
                 };
 
-                const openTicketModal = (ticket) => { selectedTicket.value = ticket; editData.value = JSON.parse(JSON.stringify(ticket)); };
+                const onEditDetailsInput = () => {
+                    if (editData.value && (!editData.value.isIssueTouched || !editData.value.issue?.trim())) {
+                        const lines = (editData.value.details || '').split('\n');
+                        editData.value.issue = lines.length > 0 ? lines[0].trim() : '';
+                    }
+                };
+
+                const onEditIssueInput = () => {
+                    if (editData.value) {
+                        editData.value.isIssueTouched = true;
+                    }
+                };
+
+                const openTicketModal = (ticket) => {
+                    selectedTicket.value = ticket;
+                    const copy = JSON.parse(JSON.stringify(ticket));
+                    if (!copy.issue) {
+                        copy.issue = copy.details ? copy.details.split('\n')[0].trim() : '';
+                    }
+                    editData.value = copy;
+                };
                 const closeTicketModal = () => { selectedTicket.value = null; };
                 
                 const allowedEngineersInModal = computed(() => {
@@ -970,14 +1011,21 @@
                 });
 
                 const saveTicketModal = async () => {
+                    if (!editData.value.customer?.trim() || !editData.value.model?.trim() || !editData.value.issue?.trim()) {
+                        confirmDialog.title = "提醒事項";
+                        confirmDialog.message = "請填寫客戶名稱、機型與問題狀況！";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                        return;
+                    }
                     const index = tickets.value.findIndex(t => t.id === editData.value.id);
                     if (index !== -1) {
                         if (editData.value.engineer === '未指派') editData.value.status = '未執行';
                         handleDateAndStatus(editData.value, editData.value.status);
                         tickets.value[index] = { ...editData.value };
                     }
+                    await saveData();
                     closeTicketModal();
-                    await saveData(); 
                 };
 
                 const executeConfirm = () => { if (confirmDialog.onConfirm) confirmDialog.onConfirm(); confirmDialog.isOpen = false; };
@@ -1183,6 +1231,7 @@
                     statuses, engineers, tickets, getTickets, getStatusColor,
                     isOverdue, onDragStart, onDrop, unassignedTickets,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, allowedEngineersInModal,
+                    onEditDetailsInput, onEditIssueInput,
                     confirmDialog, executeConfirm, isLoading, captureBoard,
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,

@@ -128,7 +128,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="label-style text-blue-600">* 客戶名稱</label>
                             <input v-model="formData.customer" placeholder="輸入客戶或公司名稱" class="input-style font-medium" required />
@@ -137,6 +137,16 @@
                             <label class="label-style text-blue-600">* 機型</label>
                             <input v-model="formData.model" placeholder="輸入報修設備機型" class="input-style font-medium" required />
                         </div>
+                        <div>
+                            <label class="label-style text-blue-600">* 問題狀況</label>
+                            <input 
+                                v-model="formData.issue" 
+                                @input="onFormIssueInput"
+                                placeholder="自動帶入詳細資訊第一行，可自行修改" 
+                                class="input-style font-medium" 
+                                required 
+                            />
+                        </div>
                     </div>
 
                     <div>
@@ -144,8 +154,9 @@
                         <div class="flex flex-col md:flex-row gap-4 items-end">
                             <textarea 
                                 v-model="formData.details" 
+                                @input="onFormDetailsInput"
                                 class="input-style flex-1 resize-y custom-scrollbar min-h-[60px] max-h-[200px]" 
-                                placeholder="請輸入詳細備註資訊..."
+                                placeholder="請輸入詳細備註資訊 (第一行將自動帶入問題狀況)..."
                             ></textarea>
                             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 active:scale-[0.98] whitespace-nowrap md:w-auto w-full">
                                 <l-icon name="plus" class="w-5 h-5"></l-icon> 建立派單
@@ -592,15 +603,25 @@
                         </div>
                     </div>
 
-                    <!-- Row 1: 客戶名稱 (50%) & 機型 (50%) -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <!-- Row 1: 客戶名稱 & 機型 & 問題狀況 (3 欄位) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
-                            <label class="label-style">客戶名稱</label>
-                            <input v-model="editData.customer" class="input-style mt-1 font-medium" />
+                            <label class="label-style text-blue-600">* 客戶名稱</label>
+                            <input v-model="editData.customer" class="input-style mt-1 font-medium" required />
                         </div>
                         <div>
-                            <label class="label-style">機型</label>
-                            <input v-model="editData.model" class="input-style mt-1 font-medium" />
+                            <label class="label-style text-blue-600">* 機型</label>
+                            <input v-model="editData.model" class="input-style mt-1 font-medium" required />
+                        </div>
+                        <div>
+                            <label class="label-style text-blue-600">* 問題狀況</label>
+                            <input 
+                                v-model="editData.issue" 
+                                @input="onEditIssueInput"
+                                placeholder="自動帶入詳細資訊第一行"
+                                class="input-style mt-1 font-medium" 
+                                required 
+                            />
                         </div>
                     </div>
 
@@ -696,7 +717,7 @@
                     <!-- 詳細備註與其他資訊 -->
                     <div>
                         <label class="label-style">詳細備註與其他資訊</label>
-                        <textarea v-model="editData.details" class="input-style mt-1 min-h-[140px] custom-scrollbar leading-relaxed font-medium" placeholder="請輸入詳細備註資訊..."></textarea>
+                        <textarea v-model="editData.details" @input="onEditDetailsInput" class="input-style mt-1 min-h-[140px] custom-scrollbar leading-relaxed font-medium" placeholder="請輸入詳細備註資訊 (第一行將自動帶入問題狀況)..."></textarea>
                     </div>
                 </div>
 
@@ -1066,6 +1087,9 @@
                     let address = extractField(details, /(?:維修地址|門市地址|送修地址|地址|地點|位置|廠區)[：:\s]*([^\n,，;]+)/);
                     let warranty = extractField(details, /(?:保固|合約|狀態)[：:\s]*([^\n,，;]+)/);
                     let issue = extractField(details, /(?:故障問題|故障原因|故障|固障|問題|原因)[：:\s]*([^\n]+)/);
+                    if (!issue && details.trim()) {
+                        issue = details.trim().split('\n')[0].trim();
+                    }
 
                     // 超強備用抽取：自動全字串偵測台灣手機 09xx / 市話 0x-xxxx 或 9-10 位數電話
                     if (!phone) {
@@ -1187,9 +1211,12 @@
 
                         safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
+                        let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
+
                         return {
                             ...local,
                             ...inc,
+                            issue: safeIssue,
                             status: safeStatus,
                             reportTime: safeReportDate,
                             completedDate: safeCompletedDate,
@@ -1839,6 +1866,7 @@
                 return {
                     statuses, engineers, tickets, formData, getTickets, getStatusColor,
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
+                    onFormDetailsInput, onFormIssueInput, onEditDetailsInput, onEditIssueInput,
                     showEngModal, newEngName, editEngIndex, editEngName, addEngineer, startEditEngineer, saveEngineerEdit, confirmDeleteEngineer,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal,
                     confirmDialog, executeConfirm, isLoading,
