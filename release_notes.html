@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叫修輔助管理系統 - 功能更新說明與版本日誌</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #F8FAFC;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+        .page-break {
+            page-break-inside: avoid;
+        }
+    </style>
+</head>
+<body class="text-slate-800 p-4 md:p-8 bg-slate-50">
+    <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        
+        <!-- Header Banner -->
+        <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 p-8 text-white relative overflow-hidden">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <div class="inline-flex items-center gap-2 bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-200 text-xs font-extrabold px-3 py-1 rounded-full mb-3">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        叫修輔助管理系統 • 系統版本 Update v1.2
+                    </div>
+                    <h1 class="text-3xl font-black tracking-tight mb-1">功能升級與更新說明日誌</h1>
+                    <p class="text-blue-100/90 text-sm font-medium">針對上傳照片擴容、高畫質截圖、自動填寫防呆與報表匯出進行全面優化</p>
+                </div>
+                <div class="text-right shrink-0">
+                    <div class="text-xs text-blue-200/80 font-mono">更新日期：2026 年 8 月 4 日</div>
+                    <div class="text-xs text-blue-200/80 font-mono mt-0.5">適用對象：全體工程師、內勤與管理團隊</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content List -->
+        <div class="p-8 space-y-6">
+
+            <!-- Summary Box -->
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl p-5 text-sm text-slate-700 leading-relaxed">
+                <div class="font-bold text-blue-900 text-base mb-1.5 flex items-center gap-2">
+                    <span>📌 本次升級摘要</span>
+                </div>
+                為了提供更流暢的派單與報修體驗，本版本重點優化了<b>照片上傳張數限制 (提高至 10 張)</b>、<b>看板 high-DPI 高畫質截圖 (3 倍率解析度)</b>、<b>「問題狀況」智慧自動帶入與必填校驗</b>，以及<b>匯出 CSV 報表格式與 Excel 開啟空白防錯</b>。
+            </div>
+
+            <!-- Item 1: 照片擴容 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-emerald-100 text-emerald-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">📷</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">1. 單筆叫修照片上傳上限提高至 10 張</h3>
+                            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">容量升級</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            因應複雜現場環境備註與多張報價單據的需求，單筆派單的照片附件數量上限已由原先的 5 張調高至 <b>10 張</b>。
+                        </p>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                            <div>• <b>自動高清壓縮</b>：上傳時系統會自動將圖片壓縮為約 200~300KB 的高清 Web 格式，絕不消耗手機過多流量。</div>
+                            <div>• <b>Google Drive 自動同步</b>：所有附件照片皆會即時備份至專屬雲端硬碟「叫修系統照片附件」資料夾中。</div>
+                            <div>• <b>燈箱瀏覽優化</b>：支援手機端左右滑動切換照片，電腦端支援鍵盤左右方向鍵（`←`/`→`）快速瀏覽。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item 2: 高畫質截圖 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-blue-100 text-blue-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">🖼️</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">2. 看板截圖畫質提升至 3 倍率 & 解決字體裁切</h3>
+                            <span class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md">畫質強化</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            修正「待指派放置區」與「報價進度追蹤區」的圖片擷取功能，解決過去部分客戶名稱或機型字體底部筆畫（如「智易科技」、「華泰」）被裁切的情況。
+                        </p>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1">
+                            <div class="font-bold text-amber-950 mb-0.5">💡 LINE 傳送無損畫質指南：</div>
+                            <div>截圖畫質已升級為 <b>3 倍高解析度 (3x DPI)</b>。如需傳送至 LINE 聊天室，建議發送時勾選點亮 <b>「原始畫質 (HD)」</b> 圖示，可防止 LINE 系統強制破壞性壓縮，確保圖片清晰放大不模糊！</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item 3: 問題狀況智慧帶入 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-purple-100 text-purple-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">✍️</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">3. 新增「問題狀況」必填欄位與第一行自動複製連動</h3>
+                            <span class="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-md">流程優化</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            派單表單與工程師端 APP 正式新增「問題狀況」獨立欄位，並列為必填項目，讓問題描述更聚焦。
+                        </p>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                            <div>• <b>第一行自動複製</b>：輸入「其他詳細資訊」時，系統會自動將第一行內容複製填入「問題狀況」欄位，省去重複輸入時間。</div>
+                            <div>• <b>自由彈性修改</b>：您仍可針對「問題狀況」進行獨立微調或自訂編輯，手動編輯後不會被自動覆蓋。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item 4: CSV 匯出修復 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-rose-100 text-rose-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">📊</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">4. 匯出 CSV 報表格式校正與 Excel 空白防呆修復</h3>
+                            <span class="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-md">相容性修復</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            全面升級 CSV 報表下載引擎，徹底解決部分 Excel 環境開啟後顯示全空白或單元格錯位問題。
+                        </p>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                            <div>• <b>欄位順序優化</b>：報表中已加入「問題狀況」欄位，並嚴格排列於「其他詳細資訊」之前。</div>
+                            <div>• <b>編碼與換行清洗</b>：加入 UTF-8 BOM 標頭，並自動清理儲存格內部的斷行符號與公式敏感字元，開檔穩定度 100%。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-100 border-t border-slate-200 p-5 text-center text-xs text-slate-500">
+            叫修輔助管理系統 • 團隊技術維護團隊 敬啟
+        </div>
+    </div>
+</body>
+</html>
