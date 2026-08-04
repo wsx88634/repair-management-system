@@ -67,7 +67,7 @@
             <div class="grid grid-cols-2 gap-2.5 text-xs">
                 <div class="bg-white border border-slate-200 p-2.5 rounded-xl">
                     <div class="font-bold text-slate-800 mb-0.5">Step 1: 填寫基本資料</div>
-                    <p class="text-slate-600">設定「報修日期」、客戶門市名稱、設備機型與<b>必填「問題狀況」</b>（輸入詳細資訊時<b>第一行會自動複製帶入</b>，亦可自由修改）。</p>
+                    <p class="text-slate-600">設定「報修日期」、客戶門市名稱、設備機型與<b>必填「問題狀況」</b>。</p>
                 </div>
                 <div class="bg-white border border-slate-200 p-2.5 rounded-xl">
                     <div class="font-bold text-slate-800 mb-0.5">Step 2: 選擇工程師與時效</div>
@@ -76,6 +76,18 @@
                 <div class="col-span-2 bg-white border border-slate-200 p-2.5 rounded-xl">
                     <div class="font-bold text-slate-800 mb-0.5">Step 3: 輸入備註細節與建立</div>
                     <p class="text-slate-600">填入詳細聯絡人、電話、門市地址與故障狀況，點擊 <b>`＋ 建立派單`</b> 即可發送至看板。</p>
+                </div>
+                <!-- 獨立「問題狀況」欄位重點說明 -->
+                <div class="col-span-2 bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl">
+                    <div class="font-bold text-blue-900 mb-1 flex items-center gap-1">
+                        <span>✨ 特色功能：「問題狀況」必填欄位與第一行自動複製帶入</span>
+                    </div>
+                    <div class="space-y-1 text-slate-700">
+                        <div>• <b>獨立必填欄位</b>：機型欄位旁新增「問題狀況」為必填項目，讓工程師能一眼掌握核心故障。</div>
+                        <div>• <b>第一行自動複製連動</b>：在「其他詳細資訊」輸入內容時，系統會<b>自動複製第一行文字帶入「問題狀況」</b>，免去重複打字。</div>
+                        <div>• <b>支援手動修改</b>：亦可獨立編輯「問題狀況」，修改後不會被備註內容覆蓋。</div>
+                        <div>• <b>報表匯出獨立顯示</b>：匯出 CSV 報表時包含此欄位，並放置於「其他詳細資訊」前，方便做問題類型統計。</div>
+                    </div>
                 </div>
             </div>
         </div>
