@@ -1658,11 +1658,12 @@
                 };
 
                 const downloadCSV = (exportData, filenamePrefix) => {
-                    const headers = ['編號', '報修日期', '完成日期', '當前狀態', '報價進度', '歸檔狀態', '負責工程師', '客戶名稱', '機型', '時效(天)', '聯絡人', '電話', '地址', '保固', '故障問題', '原始備註'];
+                    const headers = ['編號', '報修日期', '完成日期', '當前狀態', '報價進度', '歸檔狀態', '負責工程師', '客戶名稱', '機型', '時效(天)', '聯絡人', '電話', '地址', '保固', '問題狀況', '其他詳細資訊'];
                     const escapeCSV = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
                     const rows = exportData.map(t => {
                         const p = parseDetails(t.details);
-                        return [t.id, t.reportTime, t.completedDate || '', t.status, t.quoteState || '', t.isArchived ? '已封存' : '處理中', t.engineer, escapeCSV(t.customer), escapeCSV(t.model), t.slaDays, escapeCSV(p.contact), escapeCSV(p.phone), escapeCSV(p.address), escapeCSV(p.warranty), escapeCSV(p.issue), escapeCSV(t.details)];
+                        const issueText = t.issue || p.issue || (t.details ? t.details.split('\n')[0].trim() : '');
+                        return [t.id, t.reportTime, t.completedDate || '', t.status, t.quoteState || '', t.isArchived ? '已封存' : '處理中', t.engineer, escapeCSV(t.customer), escapeCSV(t.model), t.slaDays, escapeCSV(p.contact), escapeCSV(p.phone), escapeCSV(p.address), escapeCSV(p.warranty), escapeCSV(issueText), escapeCSV(t.details)];
                     });
                     const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
