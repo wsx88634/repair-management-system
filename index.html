@@ -1016,8 +1016,34 @@
                     slaDays: 3,
                     customer: "",
                     model: "",
+                    issue: "",
+                    isIssueTouched: false,
                     details: ""
                 });
+
+                const onFormDetailsInput = () => {
+                    if (!formData.isIssueTouched || !formData.issue?.trim()) {
+                        const lines = (formData.details || '').split('\n');
+                        formData.issue = lines.length > 0 ? lines[0].trim() : '';
+                    }
+                };
+
+                const onFormIssueInput = () => {
+                    formData.isIssueTouched = true;
+                };
+
+                const onEditDetailsInput = () => {
+                    if (editData.value && (!editData.value.isIssueTouched || !editData.value.issue?.trim())) {
+                        const lines = (editData.value.details || '').split('\n');
+                        editData.value.issue = lines.length > 0 ? lines[0].trim() : '';
+                    }
+                };
+
+                const onEditIssueInput = () => {
+                    if (editData.value) {
+                        editData.value.isIssueTouched = true;
+                    }
+                };
 
                 const showEngModal = ref(false);
                 const newEngName = ref("");
@@ -1491,9 +1517,9 @@
                 };
 
                 const handleAddTicket = async () => {
-                    if (!formData.customer?.trim() || !formData.model?.trim()) {
+                    if (!formData.customer?.trim() || !formData.model?.trim() || !formData.issue?.trim()) {
                         confirmDialog.title = "提醒事項";
-                        confirmDialog.message = "請填寫客戶名稱與機型！";
+                        confirmDialog.message = "請填寫客戶名稱、機型與問題狀況！";
                         confirmDialog.isWarning = true;
                         confirmDialog.isOpen = true;
                         return;
@@ -1509,16 +1535,27 @@
                         isArchived: false,
                         attachments: []
                     });
-                    formData.customer = ""; formData.model = ""; formData.details = ""; formData.engineer = "未指派";
+                    formData.customer = ""; formData.model = ""; formData.issue = ""; formData.isIssueTouched = false; formData.details = ""; formData.engineer = "未指派";
                     await saveData();
                 };
 
                 const openTicketModal = (ticket) => {
                     selectedTicket.value = ticket;
-                    editData.value = JSON.parse(JSON.stringify(ticket));
+                    const copy = JSON.parse(JSON.stringify(ticket));
+                    if (!copy.issue) {
+                        copy.issue = copy.details ? copy.details.split('\n')[0].trim() : '';
+                    }
+                    editData.value = copy;
                 };
                 const closeTicketModal = () => { selectedTicket.value = null; };
                 const saveTicketModal = async () => {
+                    if (!editData.value.customer?.trim() || !editData.value.model?.trim() || !editData.value.issue?.trim()) {
+                        confirmDialog.title = "提醒事項";
+                        confirmDialog.message = "請填寫客戶名稱、機型與問題狀況！";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                        return;
+                    }
                     const index = tickets.value.findIndex(t => t.id === editData.value.id);
                     if (index !== -1) {
                         if (editData.value.engineer === '未指派') editData.value.status = '未執行';
@@ -1666,14 +1703,19 @@
                 const downloadCSV = (exportData, filenamePrefix) => {
                     const headers = ['編號', '報修日期', '完成日期', '當前狀態', '報價進度', '歸檔狀態', '負責工程師', '客戶名稱', '機型', '時效(天)', '聯絡人', '電話', '地址', '保固', '問題狀況', '其他詳細資訊'];
                     const escapeCSV = (val) => {
-                        const str = String(val === null || val === undefined ? '' : val)
-                            .replace(/[\r\n]+/g, ' ')
-                            .replace(/"/g, '""');
+                        let str = String(val === null || val === undefined ? '' : val)
+                            .replace(/[\r\n\t]+/g, ' ')
+                            .replace(/"/g, '""')
+                            .trim();
+                        if (/^[=+@-]|^ID/i.test(str)) {
+                            str = ' ' + str;
+                        }
                         return `"${str}"`;
                     };
                     const rows = exportData.map(t => {
                         const p = parseDetails(t.details);
-                        const issueText = t.issue || p.issue || (t.details ? t.details.split('\n')[0].trim() : '');
+                        const firstLine = t.details ? String(t.details).split('\n')[0].trim() : '';
+                        const issueText = t.issue || p.issue || firstLine || '無說明';
                         return [
                             escapeCSV(t.id),
                             escapeCSV(t.reportTime),
@@ -1693,11 +1735,16 @@
                             escapeCSV(t.details)
                         ];
                     });
-                    const csvContent = "\uFEFF" + [headers.map(h => escapeCSV(h)).join(','), ...rows.map(r => r.join(','))].join('\r\n');
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.setAttribute('href', url);
+                    const csvContent = [headers.map(h => escapeCSV(h)).join(','), ...rows.map(r => r.join(','))].join('\r\n');
+                    const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
                     link.setAttribute('download', `${filenamePrefix}.csv`);
-                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
                 };
 
                 const captureSection = (elementId, prefix) => {
