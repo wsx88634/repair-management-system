@@ -60,6 +60,10 @@
                         </span>
                     </h1>
                     <div class="flex flex-wrap gap-3">
+                        <button @click="activeView = activeView === 'kanban' ? 'calendar' : 'kanban'" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95" :class="activeView === 'calendar' ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30 ring-2 ring-purple-400' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'">
+                            <l-icon :name="activeView === 'calendar' ? 'kanban' : 'calendar'" class="w-4 h-4"></l-icon>
+                            {{ activeView === 'calendar' ? '📋 切換看板視角' : '📅 切換行事曆視角' }}
+                        </button>
                         <button @click="forceSyncToCloud" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20">
                             <l-icon name="upload-cloud" class="w-4 h-4"></l-icon> 同步寫入雲端
                         </button>
@@ -76,6 +80,7 @@
                 </div>
             </div>
 
+            <template v-if="activeView === 'kanban'">
             <!-- 待指派放置區 -->
             <div id="unassigned-section" class="bg-slate-100 p-6 rounded-2xl border-2 border-dashed border-slate-300 shadow-inner transition-all duration-300" @dragover.prevent @drop="onDrop($event, '未指派', '未執行')">
                 <div class="flex justify-between items-center mb-4">
@@ -214,6 +219,97 @@
                     </div>
                 </div>
             </div>
+            </template>
+
+            <!-- 行事曆派工視角 (Calendar View) -->
+            <template v-else-if="activeView === 'calendar'">
+            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60 space-y-6">
+                <!-- 標題與月份控制按鈕 -->
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-purple-100 p-2.5 rounded-xl text-purple-600 shadow-sm">
+                            <l-icon name="calendar" class="w-6 h-6"></l-icon>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                {{ calendarYear }} 年 {{ calendarMonth }} 月 派工行事曆
+                            </h2>
+                            <p class="text-xs text-slate-400 font-medium">依照「報修日期」排定之所有單據預覽與詳細調閱</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button @click="prevMonth" class="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors shadow-sm active:scale-95 flex items-center gap-1 font-bold text-xs" title="上一月">
+                            <l-icon name="chevron-left" class="w-4 h-4"></l-icon> 上一月
+                        </button>
+                        <button @click="goToday" class="px-4 py-2.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-colors shadow-sm active:scale-95">
+                            今天 ({{ new Date().getMonth() + 1 }}月{{ new Date().getDate() }}日)
+                        </button>
+                        <button @click="nextMonth" class="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors shadow-sm active:scale-95 flex items-center gap-1 font-bold text-xs" title="下一月">
+                            下一月 <l-icon name="chevron-right" class="w-4 h-4"></l-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 日曆網格區域 -->
+                <div class="overflow-x-auto custom-scrollbar">
+                    <div class="min-w-[900px]">
+                        <!-- 星期頭標 -->
+                        <div class="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-bold text-slate-500">
+                            <div class="py-2.5 text-rose-500 bg-rose-50/70 rounded-xl border border-rose-100">週日</div>
+                            <div class="py-2.5 bg-slate-100/70 rounded-xl border border-slate-200/60">週一</div>
+                            <div class="py-2.5 bg-slate-100/70 rounded-xl border border-slate-200/60">週二</div>
+                            <div class="py-2.5 bg-slate-100/70 rounded-xl border border-slate-200/60">週三</div>
+                            <div class="py-2.5 bg-slate-100/70 rounded-xl border border-slate-200/60">週四</div>
+                            <div class="py-2.5 bg-slate-100/70 rounded-xl border border-slate-200/60">週五</div>
+                            <div class="py-2.5 text-blue-500 bg-blue-50/70 rounded-xl border border-blue-100">週六</div>
+                        </div>
+
+                        <!-- 日期格子群 -->
+                        <div class="grid grid-cols-7 gap-2">
+                            <div v-for="(day, idx) in calendarDays" :key="idx"
+                                 class="min-h-[140px] p-2 rounded-xl border transition-all flex flex-col justify-start relative group"
+                                 :class="[
+                                     day.isCurrentMonth ? 'bg-white border-slate-200 hover:border-purple-300 hover:shadow-md' : 'bg-slate-50/50 border-slate-100 text-slate-300 opacity-50',
+                                     day.isToday ? 'ring-2 ring-purple-500 border-purple-400 bg-purple-50/20' : ''
+                                 ]">
+                                <!-- 日期數字列 -->
+                                <div class="flex justify-between items-center mb-1.5 pb-1 border-b border-slate-100">
+                                    <span class="text-xs font-black px-2 py-0.5 rounded-lg tracking-wide" 
+                                          :class="day.isToday ? 'bg-purple-600 text-white shadow-sm' : (day.isCurrentMonth ? 'text-slate-700 bg-slate-100' : 'text-slate-400')">
+                                        {{ day.dayNum }}
+                                    </span>
+                                    <span v-if="day.tickets.length > 0" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                                        {{ day.tickets.length }} 筆派單
+                                    </span>
+                                </div>
+
+                                <!-- 該日期的單據標籤卡片 -->
+                                <div class="space-y-1.5 overflow-y-auto max-h-[110px] custom-scrollbar pr-0.5">
+                                    <div v-for="ticket in day.tickets" :key="ticket.id"
+                                         @click.stop="openTicketModal(ticket)"
+                                         class="p-2 rounded-lg text-xs font-bold cursor-pointer border transition-all hover:scale-[1.02] hover:shadow-md flex flex-col gap-0.5 group/card"
+                                         :class="getStatusColor(ticket)">
+                                        <div class="flex items-center justify-between gap-1 w-full">
+                                            <span class="font-extrabold truncate text-slate-800">{{ ticket.customer }}</span>
+                                            <span v-if="isOverdue(ticket)" class="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-ping" title="已超時"></span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-[10px] opacity-80 font-medium">
+                                            <span class="truncate text-slate-600">👤 {{ ticket.engineer }}</span>
+                                            <span class="shrink-0 px-1.5 py-0.2 rounded bg-white/70 font-semibold">{{ ticket.status }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="day.tickets.length === 0 && day.isCurrentMonth" class="h-full flex items-center justify-center text-[11px] text-slate-300 font-medium py-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        無叫修單
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </template>
         </div>
 
         <!-- 歷史紀錄搜尋彈窗 -->
@@ -637,6 +733,87 @@
                 });
 
                 const isUnassignedExpanded = ref(true);
+
+                // 行事曆視角狀態與邏輯
+                const activeView = ref('kanban'); // 'kanban' | 'calendar'
+                const calendarDate = ref(new Date());
+
+                const calendarYear = computed(() => calendarDate.value.getFullYear());
+                const calendarMonth = computed(() => calendarDate.value.getMonth() + 1);
+
+                const prevMonth = () => {
+                    const d = new Date(calendarDate.value);
+                    d.setMonth(d.getMonth() - 1);
+                    calendarDate.value = d;
+                };
+
+                const nextMonth = () => {
+                    const d = new Date(calendarDate.value);
+                    d.setMonth(d.getMonth() + 1);
+                    calendarDate.value = d;
+                };
+
+                const goToday = () => {
+                    calendarDate.value = new Date();
+                };
+
+                const calendarDays = computed(() => {
+                    const year = calendarDate.value.getFullYear();
+                    const month = calendarDate.value.getMonth();
+                    
+                    const firstDay = new Date(year, month, 1);
+                    const lastDay = new Date(year, month + 1, 0);
+                    
+                    const startingDayOfWeek = firstDay.getDay();
+                    const totalDays = lastDay.getDate();
+                    
+                    const days = [];
+                    
+                    // 填補上個月日期
+                    const prevMonthLastDay = new Date(year, month, 0).getDate();
+                    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+                        const d = prevMonthLastDay - i;
+                        const prevDateObj = new Date(year, month - 1, d);
+                        const dateStr = `${prevDateObj.getFullYear()}-${String(prevDateObj.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        days.push({
+                            dayNum: d,
+                            dateStr: dateStr,
+                            isCurrentMonth: false,
+                            isToday: false,
+                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                        });
+                    }
+                    
+                    // 本月日期
+                    const todayObj = new Date();
+                    const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+                    for (let i = 1; i <= totalDays; i++) {
+                        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                        days.push({
+                            dayNum: i,
+                            dateStr: dateStr,
+                            isCurrentMonth: true,
+                            isToday: dateStr === todayStr,
+                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                        });
+                    }
+                    
+                    // 填補下個月日期
+                    const remainingCells = (days.length % 7 === 0) ? 0 : 7 - (days.length % 7);
+                    for (let i = 1; i <= remainingCells; i++) {
+                        const nextDateObj = new Date(year, month + 1, i);
+                        const dateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                        days.push({
+                            dayNum: i,
+                            dateStr: dateStr,
+                            isCurrentMonth: false,
+                            isToday: false,
+                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                        });
+                    }
+                    
+                    return days;
+                });
 
                 const showSearchModal = ref(false);
                 const searchInput = ref(''); 
@@ -1269,7 +1446,8 @@
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen,
                     fetchData, isUnassignedExpanded, isApiConnected, forceSyncToCloud, manualRefresh,
                     viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, closeImageViewer, handleImageUpload, removeAttachment,
-                    isUploadingImage, uploadProgressText, isVideoUrl
+                    isUploadingImage, uploadProgressText, isVideoUrl,
+                    activeView, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays
                 };
             }
         };
