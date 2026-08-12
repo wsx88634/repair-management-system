@@ -891,17 +891,23 @@
                     }
                 };
 
-                const saveData = async (isManualSync = false) => {
+                let syncTimeout = null;
+                let isSyncing = false;
+
+                const performCloudSync = async (isManualSync = false) => {
+                    if (isSyncing) return;
+                    isSyncing = true;
                     isSaving.value = true;
                     if (isManualSync) isLoading.value = true;
-
-                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
-                    localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
                     const cleanTickets = tickets.value.map(t => {
                         const copy = { ...t };
                         if (copy.attachments) {
-                            copy.attachments = JSON.stringify(copy.attachments);
+                            // 過濾掉可能因為斷線而在本地殘留的過大 base64 檔案
+                            const safeAttachments = copy.attachments.map(a => 
+                                (typeof a === 'string' && a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
+                            );
+                            copy.attachments = JSON.stringify(safeAttachments);
                         }
                         return copy;
                     });
@@ -937,7 +943,23 @@
                     } finally {
                         isSaving.value = false;
                         isLoading.value = false;
+                        isSyncing = false;
                     }
+                };
+
+                const saveData = async (isManualSync = false) => {
+                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                    localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
+
+                    if (isManualSync) {
+                        if (syncTimeout) clearTimeout(syncTimeout);
+                        return await performCloudSync(true);
+                    }
+
+                    if (syncTimeout) clearTimeout(syncTimeout);
+                    syncTimeout = setTimeout(() => {
+                        performCloudSync(false);
+                    }, 2000);
                 };
 
                 const forceSyncToCloud = () => {

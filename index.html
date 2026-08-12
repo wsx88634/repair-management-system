@@ -1374,22 +1374,29 @@
                     }
                 };
 
-                const saveData = async (isManualSync = false) => {
-                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
-                    localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
-
-                    if (!apiUrl.value) return;
-
+                let syncTimeout = null;
+                let isSyncing = false;
+                
+                const performCloudSync = async (isManualSync = false) => {
+                    if (!apiUrl.value || isSyncing) return;
+                    isSyncing = true;
                     isSaving.value = true;
                     if (isManualSync) isLoading.value = true;
+                    
                     try {
-                        const payloadTickets = tickets.value.map(t => ({
-                            ...t,
-                            completedDate: t.completedDate || '',
-                            quoteState: t.quoteState || '',
-                            isArchived: t.isArchived || false,
-                            attachments: t.attachments || []
-                        }));
+                        const payloadTickets = tickets.value.map(t => {
+                            // 清理可能因斷線而暫存於本地的過大 base64 (超過 1MB 視為異常)，避免癱瘓雲端同步
+                            const safeAttachments = (t.attachments || []).map(a => 
+                                (a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
+                            );
+                            return {
+                                ...t,
+                                completedDate: t.completedDate || '',
+                                quoteState: t.quoteState || '',
+                                isArchived: t.isArchived || false,
+                                attachments: safeAttachments
+                            };
+                        });
 
                         const res = await fetchWithRetry(apiUrl.value, {
                             method: 'POST',
@@ -1416,7 +1423,27 @@
                     } finally {
                         isSaving.value = false;
                         isLoading.value = false;
+                        isSyncing = false;
                     }
+                };
+
+                const saveData = async (isManualSync = false) => {
+                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                    localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
+
+                    if (!apiUrl.value) return;
+
+                    // 若為手動強制同步，立刻執行
+                    if (isManualSync) {
+                        if (syncTimeout) clearTimeout(syncTimeout);
+                        return await performCloudSync(true);
+                    }
+
+                    // 自動同步加入防抖 (Debounce)，避免短時間內(如連續拖曳)產生大量請求造成後端塞車
+                    if (syncTimeout) clearTimeout(syncTimeout);
+                    syncTimeout = setTimeout(() => {
+                        performCloudSync(false);
+                    }, 2000);
                 };
 
                 const syncAllImportedToGAS = async () => {
