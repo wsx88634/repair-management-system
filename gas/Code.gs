@@ -280,12 +280,11 @@ function saveImageToDrive(base64Data, fileName) {
     const folder = getOrCreateDriveFolder();
     const contentType = base64Data.substring(5, base64Data.indexOf(';'));
     const bytes = Utilities.base64Decode(base64Data.substring(base64Data.indexOf(',') + 1));
-    const blob = Utilities.newBlob(bytes, contentType, fileName || ("repair_img_" + new Date().getTime() + ".jpg"));
+    const blob = Utilities.newBlob(bytes, contentType, fileName || ("repair_image_" + new Date().getTime() + ".jpg"));
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
     const fileId = file.getId();
-    // Return direct image preview URL from Google Drive CDN
     const url = "https://lh3.googleusercontent.com/d/" + fileId;
     return { status: "success", url: url, fileId: fileId };
   } catch(err) {

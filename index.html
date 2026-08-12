@@ -678,14 +678,14 @@
                             <label v-if="!editData.attachments || editData.attachments.length < 10" class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
                                 <l-icon name="cloud-upload" class="w-4 h-4"></l-icon>
                                 新增 / 批次上傳 (最多10張)
-                                <input type="file" accept="image/*,video/mp4,video/quicktime,video/webm" @change="handleImageUpload" class="hidden" multiple />
+                                <input type="file" accept="image/*" @change="handleImageUpload" class="hidden" multiple />
                             </label>
                         </div>
 
                         <!-- 警示提醒框 -->
                         <div class="bg-blue-50 border border-blue-200/80 p-3 rounded-xl text-xs text-blue-800 font-bold flex items-center gap-2">
                             <l-icon name="cloud-upload" class="w-4 h-4 text-blue-600 shrink-0"></l-icon>
-                            <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 10 張高清照片或 20MB 內短影片。</span>
+                            <span>☁️ 已升級 Google Drive 雲端高畫質儲存，每筆單據最多可夾帶 10 張高清照片。</span>
                         </div>
 
                         <!-- 上傳中進度提示 -->
@@ -705,12 +705,7 @@
                             <!-- 有圖片時 -->
                             <div v-else class="flex flex-wrap gap-4 items-center justify-center w-full">
                                 <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative group w-36 h-28 rounded-xl border border-slate-300 overflow-hidden shadow-sm bg-black">
-                                    <template v-if="isVideoUrl(img)">
-                                        <div class="w-full h-full cursor-pointer flex items-center justify-center bg-slate-800 opacity-80 group-hover:opacity-100 transition-opacity" @click="viewImage(img, editData.attachments)">
-                                            <l-icon name="play-circle" class="w-10 h-10 text-white/80 shadow-sm"></l-icon>
-                                        </div>
-                                    </template>
-                                    <img v-else :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300 bg-white" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
+                                    <img :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300 bg-white" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
                                     <button @click="removeAttachment(idx)" class="absolute top-1.5 right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors z-10" title="刪除附件">
                                         <l-icon name="x" class="w-4 h-4"></l-icon>
                                     </button>
@@ -938,10 +933,7 @@
                 </button>
 
                 <!-- 影片/圖片主體 -->
-                <template v-if="isVideoUrl(viewingImage)">
-                    <iframe :src="getDriveVideoPreviewUrl(viewingImage)" class="w-full h-[75vh] md:w-[75vw] rounded-xl shadow-2xl bg-black border-none" allow="autoplay; fullscreen" allowfullscreen></iframe>
-                </template>
-                <img v-else :src="viewingImage" class="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl transition-all duration-200" />
+                <img :src="viewingImage" class="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl transition-all duration-200" />
 
                 <!-- 右箭頭按鈕 -->
                 <button v-if="imageList && imageList.length > 1" 
@@ -959,12 +951,7 @@
                      @click="imageIndex = idx; viewingImage = img"
                      class="w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-lg overflow-hidden border-2 cursor-pointer transition-all bg-black relative"
                      :class="idx === imageIndex ? 'border-blue-500 scale-105 opacity-100 shadow-md ring-2 ring-blue-400' : 'border-transparent opacity-50 hover:opacity-80'">
-                    <template v-if="isVideoUrl(img)">
-                        <div class="w-full h-full flex items-center justify-center bg-slate-800">
-                            <l-icon name="play" class="w-4 h-4 text-white"></l-icon>
-                        </div>
-                    </template>
-                    <img v-else :src="img" class="w-full h-full object-cover" />
+                    <img :src="img" class="w-full h-full object-cover" />
                 </div>
             </div>
         </div>
@@ -1081,19 +1068,7 @@
                 const imageList = ref([]);
                 const imageIndex = ref(0);
                 
-                const isVideoUrl = (url) => {
-                    if (!url) return false;
-                    return url.includes('type=video') || url.includes('.mp4') || url.includes('.webm') || url.includes('.mov');
-                };
-
-                const getDriveVideoPreviewUrl = (url) => {
-                    if (!url) return '';
-                    const match = url.match(/id=([^&]+)/);
-                    if (match && match[1]) {
-                        return `https://drive.google.com/file/d/${match[1]}/preview`;
-                    }
-                    return url;
-                };
+                const isVideoUrl = (url) => false;
                 const confirmDialog = reactive({
                     isOpen: false,
                     title: "",
@@ -1944,23 +1919,7 @@
                 };
 
                 const uploadImageToDrive = async (file) => {
-                    const isVideo = file.type.startsWith('video/');
-                    if (isVideo && file.size > 20 * 1024 * 1024) {
-                        alert(`影片檔案過大 (${(file.size/1024/1024).toFixed(1)}MB)，請上傳小於 20MB 的影片！`);
-                        throw new Error("Video too large");
-                    }
-                    
-                    let base64;
-                    if (isVideo) {
-                        base64 = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve(reader.result);
-                            reader.onerror = error => reject(error);
-                            reader.readAsDataURL(file);
-                        });
-                    } else {
-                        base64 = await compressImageToSafeSize(file);
-                    }
+                    const base64 = await compressImageToSafeSize(file);
 
                     if (!apiUrl.value) return base64;
                     const res = await fetchWithRetry(apiUrl.value, {
@@ -2032,7 +1991,7 @@
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     isUnassignedExpanded, isQuoteExpanded,
                     viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
-                    isUploadingImage, uploadProgressText, isVideoUrl, getDriveVideoPreviewUrl,
+                    isUploadingImage, uploadProgressText, isVideoUrl,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
                     apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
                 };
