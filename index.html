@@ -1267,7 +1267,14 @@
                     for (let attempt = 1; attempt <= maxRetries; attempt++) {
                         try {
                             const res = await fetch(url, options);
-                            if (res.ok) return res;
+                            if (res.ok) {
+                                const clone = res.clone();
+                                const text = await clone.text();
+                                if (text.trim().startsWith('<')) {
+                                    throw new Error("Received HTML instead of JSON from GAS");
+                                }
+                                return res;
+                            }
                             if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
                             else return res;
                         } catch (err) {
