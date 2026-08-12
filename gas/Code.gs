@@ -5,7 +5,7 @@
  * 2. 誰可以存取 (Who has access)：任何人 (Anyone)
  */
 
-const SPREADSHEET_ID = "1MkdyLZ2BRIHcS7WwwklWE47g6h7PJFafq8-cP4wmvn8"; // 已精準鎖定正確的「叫修管理系統資料庫」
+const SPREADSHEET_ID = ""; // 若指定試算表ID可精準鎖定；若留空自動選取雲端最新建立的「叫修管理系統資料庫」
 const TICKET_SHEET_NAME = "叫修單據紀錄";
 const SYSTEM_SHEET_NAME = "系統設定與團隊";
 

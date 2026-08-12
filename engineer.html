@@ -780,7 +780,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: false,
                             isToday: false,
-                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
                         });
                     }
                     
@@ -794,7 +794,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: true,
                             isToday: dateStr === todayStr,
-                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
                         });
                     }
                     
@@ -808,7 +808,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: false,
                             isToday: false,
-                            tickets: tickets.value.filter(t => t.reportTime === dateStr && !t.isArchived)
+                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
                         });
                     }
                     
