@@ -1239,6 +1239,11 @@
                 };
 
                 
+                
+                const showDayModal = ref(false);
+                const selectedDay = ref(null);
+                const openDayModal = (day) => { selectedDay.value = day; showDayModal.value = true; };
+                const closeDayModal = () => { showDayModal.value = false; selectedDay.value = null; };
                 const calendarFilter = ref('全部');
                 const filterTicketsForDay = (dateStr) => {
                     const ticketsToFilter = activeView === 'calendar' && typeof displayTickets !== 'undefined' ? displayTickets.value : tickets.value;
@@ -2229,7 +2234,7 @@
                     isUnassignedExpanded, isQuoteExpanded,
                     viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText, isVideoUrl,
-                    activeView, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
+                    activeView, showDayModal, selectedDay, openDayModal, closeDayModal, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
                     apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
                 };
