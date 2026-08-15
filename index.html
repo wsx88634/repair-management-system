@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+完修未完修執完修行完修<完修未執行!未執行D未執行O未執行CTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -405,6 +405,11 @@
                             </h2>
                             <p class="text-xs text-slate-400 font-medium">依照「報修日期」排定之所有單據預覽與詳細調閱</p>
                         </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center gap-2 flex-1 px-4">
+                        <button @click="calendarFilter = (calendarFilter === '未執行' ? '全部' : '未執行')" :class="calendarFilter === '未執行' ? 'bg-amber-100 border-amber-300 text-amber-800 ring-2 ring-amber-400/50' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'" class="px-4 py-2 rounded-lg border text-sm font-bold transition-all shadow-sm">未執行</button>
+                        <button @click="calendarFilter = (calendarFilter === '完修' ? '全部' : '完修')" :class="calendarFilter === '完修' ? 'bg-emerald-100 border-emerald-300 text-emerald-800 ring-2 ring-emerald-400/50' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'" class="px-4 py-2 rounded-lg border text-sm font-bold transition-all shadow-sm">完修</button>
                     </div>
 
                     <div class="flex items-center gap-3">
@@ -1169,6 +1174,7 @@
                 // 行事曆視角狀態與邏輯
                 const activeView = ref('kanban'); // 'kanban' | 'calendar'
                 const calendarDate = ref(new Date());
+                const calendarFilter = ref('全部');
 
                 const calendarYear = computed(() => calendarDate.value.getFullYear());
                 const calendarMonth = computed(() => calendarDate.value.getMonth() + 1);
@@ -1189,6 +1195,7 @@
                     calendarDate.value = new Date();
                 };
 
+                const filterTicketsForDay = (dateStr) => { return tickets.value.filter(t => { if ((t.reportTime || '').replace(/\//g, '-').trim() !== dateStr) return false; if (calendarFilter.value === '未執行') return t.status !== '完修' && t.status !== '取消叫修'; if (calendarFilter.value === '完修') return t.status === '完修'; return true; }); };
                 const calendarDays = computed(() => {
                     const year = calendarDate.value.getFullYear();
                     const month = calendarDate.value.getMonth();
@@ -1212,7 +1219,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: false,
                             isToday: false,
-                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
+                            tickets: filterTicketsForDay(dateStr)
                         });
                     }
                     
@@ -1226,7 +1233,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: true,
                             isToday: dateStr === todayStr,
-                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
+                            tickets: filterTicketsForDay(dateStr)
                         });
                     }
                     
@@ -1240,7 +1247,7 @@
                             dateStr: dateStr,
                             isCurrentMonth: false,
                             isToday: false,
-                            tickets: tickets.value.filter(t => (t.reportTime || '').replace(/\//g, '-').trim() === dateStr)
+                            tickets: filterTicketsForDay(dateStr)
                         });
                     }
                     
@@ -2169,6 +2176,7 @@
                     isUnassignedExpanded, isQuoteExpanded,
                     viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText, isVideoUrl,
+                calendarFilter,
                     activeView, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
                     apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, syncAllImportedToGAS, forceSyncToCloud, manualRefresh

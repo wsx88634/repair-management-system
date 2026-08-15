@@ -9,6 +9,10 @@ const SPREADSHEET_ID = ""; // 若指定試算表ID可精準鎖定；若留空自
 const TICKET_SHEET_NAME = "叫修單據紀錄";
 const SYSTEM_SHEET_NAME = "系統設定與團隊";
 
+// LINE Bot 自動報修設定
+const LINE_PASSCODE = "888"; // 通關密語 (包含此暗號且開頭為 報修/叫修/派工 才會自動進件)
+const LINE_CHANNEL_ACCESS_TOKEN = "3MCMc4/f/yB96MxkBtKm5E49QTR3ybLSt0VP+WkUaLWkHziBuUbybaYg9vIK7Ab2/5o5ENV4D8EFUmThyG6TylE5g31yH0tVxUlU40KZOPP32OxjljOVKktKxk6PT4Br3AEMcVkXu6RX209/5zwRSQdB04t89/1O/w1cDnyilFU=";
+
 // 預設真實工程師團隊名單 (9 位團隊成員)
 const DEFAULT_ENGINEERS = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
 
@@ -182,6 +186,17 @@ function doPost(e) {
       return respondJSON(res);
     }
 
+    // 0. LINE Webhook 訊息處理 (來自 LINE Bot 的自動進件事件)
+    if (body.events && Array.isArray(body.events)) {
+      if (body.events.length === 0) {
+        // LINE Verify 按鈕測試事件：0.1 秒極速回覆 200 OK，防止 LINE 控制台逾時 (Timeout)
+        return respondJSON({ status: "success", message: "LINE Verify Success" });
+      }
+      const { ticketSheet } = getDbSheets();
+      handleLineEvents(body.events, ticketSheet);
+      return respondJSON({ status: "success", message: "LINE Webhook processed" });
+    }
+
     const { ticketSheet, sysSheet } = getDbSheets();
 
     // 1. 更新工程師團隊
@@ -238,6 +253,102 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 處理來自 LINE Bot 的訊息事件 (通關密語機制)
+ */
+function handleLineEvents(events, ticketSheet) {
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    if (event.type === "message" && event.message && event.message.type === "text") {
+      const userText = event.message.text.trim();
+      
+      // 檢查通關密語/暗號 (例如包含 888 且包含報修/叫修/派工)
+      const hasPasscode = !LINE_PASSCODE || userText.includes(LINE_PASSCODE);
+      const isRepairKeyword = /(報修|叫修|派工)/.test(userText);
+
+      if (hasPasscode && isRepairKeyword) {
+        // 清除前綴關鍵字與通關密語
+        let cleanText = userText.replace(/(報修|叫修|派工)/g, "").replace(new RegExp(LINE_PASSCODE, "g"), "").replace(/^[:：\s]+/, "").trim();
+        
+        let customer = "LINE 報修";
+        let model = "未填寫";
+        let issue = cleanText || "未填寫故障描述";
+        let details = "【LINE 自動進件】\n" + userText;
+
+        // 嘗試進階正則表達式解析 (支援「1.客戶名稱/經銷：」、「機型/機號：」、「故障問題：」等多種格式)
+        let customerMatch = cleanText.match(/(?:客戶名稱\/經銷|客戶名稱|客戶|公司|店名)[：:]\s*([^\n]+)/);
+        if (customerMatch) customer = customerMatch[1].trim();
+
+        let modelMatch = cleanText.match(/(?:機型\/機號|機型|設備|機器)[：:]\s*([^\n]+)/);
+        if (modelMatch) model = modelMatch[1].trim();
+
+        let issueMatch = cleanText.match(/(?:故障問題|問題狀況|問題|故障|狀況|描述)[：:]\s*([\s\S]+)/);
+        if (issueMatch) issue = issueMatch[1].trim();
+
+        // 若無欄位標籤，將第一行為客戶名稱，第二行為機型 (Fallback 機制)
+        const lines = cleanText.split("\n").map(l => l.trim()).filter(l => l);
+        if (customer === "LINE 報修" && lines.length >= 1 && !lines[0].includes("：") && !lines[0].includes(":")) {
+          customer = lines[0];
+          if (lines.length >= 2 && !lines[1].includes("：") && !lines[1].includes(":")) {
+            model = lines[1];
+            if (lines.length >= 3) {
+              issue = lines.slice(2).join(" ");
+            }
+          }
+        }
+
+        // 生成新單號 T-XXXX
+        const todayStr = formatDateOnly(new Date());
+        const randomId = "T-" + Math.floor(1000 + Math.random() * 9000);
+
+        // 寫入 Google Sheet (單據新增至底部)
+        const newRow = [
+          randomId,
+          todayStr,
+          customer,
+          model,
+          "未指派",
+          3,
+          "未執行",
+          "",
+          "",
+          false,
+          details,
+          "[]",
+          formatDate(new Date()),
+          issue
+        ];
+
+        ticketSheet.appendRow(newRow);
+
+        // 回覆 LINE 訊息
+        if (event.replyToken) {
+          replyLineMessage(event.replyToken, `✅ 【叫修自動登錄成功】\n📋 單號：${randomId}\n👤 客戶：${customer}\n🖥️ 機型：${model}\n🔧 狀況：${issue}\n\n已自動同步至管理系統「待指派」區域！`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 發送 LINE 回覆訊息
+ */
+function replyLineMessage(replyToken, text) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN) return;
+  const url = "https://api.line.me/v2/bot/message/reply";
+  const payload = {
+    replyToken: replyToken,
+    messages: [{ type: "text", text: text }]
+  };
+  UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + LINE_CHANNEL_ACCESS_TOKEN },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
 }
 
 function respondJSON(obj) {

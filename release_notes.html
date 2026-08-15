@@ -31,13 +31,13 @@
                 <div>
                     <div class="inline-flex items-center gap-2 bg-blue-500/20 backdrop-blur-md border border-blue-400/30 text-blue-200 text-xs font-extrabold px-3 py-1 rounded-full mb-3">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        叫修輔助管理系統 • 系統版本 Update v1.2
+                        叫修輔助管理系統 • 系統版本 Update v1.3
                     </div>
                     <h1 class="text-3xl font-black tracking-tight mb-1">功能升級與更新說明日誌</h1>
-                    <p class="text-blue-100/90 text-sm font-medium">針對上傳照片擴容、高畫質截圖、自動填寫防呆與報表匯出進行全面優化</p>
+                    <p class="text-blue-100/90 text-sm font-medium">新增 LINE 自動報修進件與智慧格式解析</p>
                 </div>
                 <div class="text-right shrink-0">
-                    <div class="text-xs text-blue-200/80 font-mono">更新日期：2026 年 8 月 4 日</div>
+                    <div class="text-xs text-blue-200/80 font-mono">更新日期：2026 年 8 月 15 日</div>
                     <div class="text-xs text-blue-200/80 font-mono mt-0.5">適用對象：全體工程師、內勤與管理團隊</div>
                 </div>
             </div>
@@ -47,15 +47,64 @@
         <div class="p-8 space-y-6">
 
             <!-- Summary Box -->
+            <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-xl p-5 text-sm text-slate-700 leading-relaxed">
+                <div class="font-bold text-emerald-900 text-base mb-1.5 flex items-center gap-2">
+                    <span>📌 本次升級摘要 (v1.3)</span>
+                </div>
+                本次重大更新正式導入了<b>LINE 官方帳號機器人自動進件功能</b>，支援自訂通關密語驗證與智慧模板解析。群組內回報的叫修單據將於 1 秒內自動建立至網頁看板的「待指派放置區」，大幅節省內勤建單的人力與時間。
+            </div>
+
+            <!-- Item 1: LINE 自動進件 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-green-100 text-green-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">💬</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">1. LINE Bot 群組自動報修進件系統上線</h3>
+                            <span class="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-0.5 rounded-md">重大升級</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            全新導入 LINE Webhook 串接機制。現在只需將系統機器人邀請進入叫修群組，當人員發送指定格式報修內容時，單據將自動同步至管理系統看板的待指派區。
+                        </p>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                            <div>• <b>自動通知回饋</b>：登錄成功後，機器人會立即於群組內回覆「單號」及「登錄成功」的確認訊息。</div>
+                            <div>• <b>通關密語防呆</b>：內建暗號機制（預設：<b>888</b> 加 報修/叫修），避免群組日常對話誤建單據。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Item 2: 智慧解析 -->
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+                <div class="flex items-start gap-3.5">
+                    <div class="bg-indigo-100 text-indigo-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">🧠</div>
+                    <div class="space-y-2 flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-slate-900">2. 自訂模板智慧文字解析引擎</h3>
+                            <span class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md">AI 解析</span>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            無論群組內發送的格式標籤為「1.客戶名稱/經銷：」、「機型/機號：」或是「故障問題：」，新版解析引擎皆能精準辨識並抽取對應文字。
+                        </p>
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                            <div>• <b>多行故障問題支援</b>：即使故障描述長達多段換行，系統也能完整捕獲並填入「問題狀況」欄位。</div>
+                            <div>• <b>原始紀錄備份</b>：原始報修內容（含統編、地址、聯絡人）將一字不漏地完整帶入「詳細備註」中。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-6 border-slate-200">
+
             <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl p-5 text-sm text-slate-700 leading-relaxed">
                 <div class="font-bold text-blue-900 text-base mb-1.5 flex items-center gap-2">
-                    <span>📌 本次升級摘要</span>
+                    <span>📌 歷史更新回顧 (v1.2)</span>
                 </div>
                 為了提供更流暢的派單與報修體驗，本版本重點優化了<b>照片上傳張數限制 (提高至 10 張)</b>、<b>看板 high-DPI 高畫質截圖 (3 倍率解析度)</b>、<b>「問題狀況」智慧自動帶入與必填校驗</b>，以及<b>匯出 CSV 報表格式與 Excel 開啟空白防錯</b>。
             </div>
 
             <!-- Item 1: 照片擴容 -->
-            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break">
+            <div class="border border-slate-200 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow page-break opacity-75">
                 <div class="flex items-start gap-3.5">
                     <div class="bg-emerald-100 text-emerald-800 p-2.5 rounded-xl shrink-0 text-xl font-bold">📷</div>
                     <div class="space-y-2 flex-1">
