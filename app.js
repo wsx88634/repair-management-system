@@ -96,6 +96,11 @@ const App = {
         const exportPasswordInput = ref("");
         const exportDateRange = reactive({ start: "", end: "" });
 
+        
+        const showDayModal = ref(false);
+        const selectedDay = ref(null);
+        const openDayModal = (day) => { selectedDay.value = day; showDayModal.value = true; };
+        const closeDayModal = () => { showDayModal.value = false; selectedDay.value = null; };
         const showSearchModal = ref(false);
         const searchInput = ref("");
         const activeSearchQuery = ref("");
@@ -722,7 +727,8 @@ const App = {
             confirmArchiveTicket, unarchiveTicket, confirmHardDeleteTicket, confirmBatchArchive,
             captureBoard, captureSection, showExportModal, exportDateRange, openExportModal, executeExport, executeExportAll,
             isExportAuthenticated, exportPasswordInput, verifyExportPassword,
-            showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
+            showDayModal, selectedDay, openDayModal, closeDayModal,
+                    showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
             displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
             fetchData, quotingTickets, quoteStats, changeQuoteState,
             isUnassignedExpanded, isQuoteExpanded,
