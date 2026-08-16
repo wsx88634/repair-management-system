@@ -241,12 +241,16 @@ function doPost(e) {
         const oldEng = oldEngMap[tid] || "未指派";
 
         // 派工變更偵測與通知
-        if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
-          if (targetId) {
-            appendPushLog(ss, "🔔 觸發派工通知！單號: " + tid + ", 客戶: " + t.customer + ", 工程師: " + oldEng + " -> " + newEng);
-            sendLineGroupDispatchNotification(targetId, t);
+        if (newEng !== "未指派" && t.status !== "完修" && t.status !== "取消叫修") {
+          if (newEng !== oldEng) {
+            if (targetId) {
+              appendPushLog(ss, "🔔 觸發派工通知！單號: " + tid + ", 客戶: " + (t.customer || "未填寫") + ", 工程師變更: " + oldEng + " -> " + newEng);
+              sendLineGroupDispatchNotification(targetId, t);
+            } else {
+              appendPushLog(ss, "⚠️ 派工變更但找不到 TargetID (LINE_USER_ID / LINE_GROUP_ID)");
+            }
           } else {
-            appendPushLog(ss, "⚠️ 派工變更但找不到 TargetID (LINE_USER_ID / LINE_GROUP_ID)");
+            // appendPushLog(ss, "ℹ️ 單號 " + tid + " 工程師未變更 (" + newEng + ")，跳過重複通知");
           }
         }
 
