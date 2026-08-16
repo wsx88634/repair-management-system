@@ -1527,6 +1527,14 @@ window.onerror = function(msg, url, line, col, error) {
 
         const app = createApp(App);
 
+        
+        app.config.errorHandler = (err, instance, info) => {
+            var d = document.getElementById("debug-error");
+            if(d) {
+                d.style.display = "block";
+                d.textContent += "VUE ERROR: " + err.toString() + "\n" + (err.stack ? err.stack : "\) + "\nInfo: " + info + "\n";
+            }
+        };
         app.component('l-icon', {
             props: ['name'],
             data() { return { iconHtml: '' } },
