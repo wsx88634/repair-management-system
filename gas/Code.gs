@@ -256,7 +256,8 @@ function doPost(e) {
         JSON.stringify(t.attachments || []),
         formatDate(new Date()),
         t.issue || ""
-      ]);
+        ];
+      });
 
       if (rowsToAppend.length > 0) {
         ticketSheet.getRange(2, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
