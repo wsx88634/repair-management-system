@@ -223,49 +223,20 @@ function doPost(e) {
       }
     }
 
-    // 2. 智慧增量更新與派工通知 (絕不清空歷史資料)
+    // 2. 更新單據資料 (穩定覆蓋版，無 LINE 推播干擾)
     if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
-      appendPushLog(ss, "收到網頁儲存請求，共 " + body.tickets.length + " 筆單據。TargetID: " + (targetId || "無"));
-
-      // 讀取現有試算表資料建立索引用於比對
-      const tData = ticketSheet.getDataRange().getValues();
-      const sheetRowMap = {}; // id -> rowIndex (1-based)
-      const oldEngMap = {};   // id -> engineer
-
-      for (let i = 1; i < tData.length; i++) {
-        if (tData[i][0]) {
-          const tid = String(tData[i][0]);
-          sheetRowMap[tid] = i + 1;
-          oldEngMap[tid] = String(tData[i][4] || "未指派");
-        }
+      const lastRow = ticketSheet.getLastRow();
+      if (lastRow > 1) {
+        ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
       }
 
-      body.tickets.forEach(t => {
-        if (!t.id) return;
-        const tid = String(t.id);
-        const newEng = t.engineer || "未指派";
-        const oldEng = oldEngMap[tid] || "未指派";
-
-        // 派工變更偵測與通知
-        if (newEng !== "未指派" && t.status !== "完修" && t.status !== "取消叫修") {
-          if (newEng !== oldEng) {
-            if (targetId) {
-              appendPushLog(ss, "🔔 觸發派工通知！單號: " + tid + ", 客戶: " + (t.customer || "未填寫") + ", 工程師變更: " + oldEng + " -> " + newEng);
-              sendLineGroupDispatchNotification(targetId, t);
-            } else {
-              appendPushLog(ss, "⚠️ 派工變更但找不到 TargetID (LINE_USER_ID / LINE_GROUP_ID)");
-            }
-          } else {
-            // appendPushLog(ss, "ℹ️ 單號 " + tid + " 工程師未變更 (" + newEng + ")，跳過重複通知");
-          }
-        }
-
-        const rowValues = [
+      const rowsToAppend = body.tickets.map(t => {
+        return [
           t.id,
           t.reportTime || "",
           t.customer || "",
           t.model || "",
-          newEng,
+          t.engineer || "未指派",
           t.slaDays || 3,
           t.status || "未執行",
           t.completedDate || "",
@@ -276,16 +247,11 @@ function doPost(e) {
           formatDate(new Date()),
           t.issue || ""
         ];
-
-        if (sheetRowMap[tid]) {
-          // 更新已有行
-          ticketSheet.getRange(sheetRowMap[tid], 1, 1, 14).setValues([rowValues]);
-        } else {
-          // 追加新單據
-          ticketSheet.appendRow(rowValues);
-          sheetRowMap[tid] = ticketSheet.getLastRow();
-        }
       });
+
+      if (rowsToAppend.length > 0) {
+        ticketSheet.getRange(2, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
+      }
     }
 
     return respondJSON({ status: "success", message: "資料同步儲存成功" });
