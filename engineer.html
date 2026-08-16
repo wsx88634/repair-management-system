@@ -814,8 +814,7 @@
                 const closeDayModal = () => { showDayModal.value = false; selectedDay.value = null; };
                 const calendarFilter = ref('全部');
                 const filterTicketsForDay = (dateStr) => {
-                    const ticketsToFilter = activeView === 'calendar' && typeof displayTickets !== 'undefined' ? displayTickets.value : tickets.value;
-                    return ticketsToFilter.filter(t => {
+                    return tickets.value.filter(t => {
                         if ((t.reportTime || '').replace(/\//g, '-').trim() !== dateStr) return false;
                         if (calendarFilter.value === '未執行') return t.status !== '完修' && t.status !== '取消叫修';
                         if (calendarFilter.value === '完修') return t.status === '完修';
