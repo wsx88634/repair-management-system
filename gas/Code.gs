@@ -488,3 +488,27 @@ https://repair-management-system-nu.vercel.app/engineer.html`
     console.error("LINE Push Failed:", e);
   }
 }
+
+
+/**
+ * 測試 LINE 派工推播發送功能 (可在 Apps Script 編輯器手動點選「執行」測試)
+ */
+function testSendPushNotification() {
+  const { sysSheet } = getDbSheets();
+  let targetId = getSystemSetting(sysSheet, "LINE_GROUP_ID") || getSystemSetting(sysSheet, "LINE_USER_ID");
+  if (!targetId) {
+    Logger.log("❌ 找不到 LINE_GROUP_ID 或 LINE_USER_ID");
+    return;
+  }
+  const testTicket = {
+    id: "TEST-001",
+    customer: "測試客戶 - 全家門市",
+    model: "測試機型 X-100",
+    engineer: "廖聖典 Max",
+    issue: "測試派工即時通知功能",
+    slaDays: 3,
+    details: "這是一則測試訊息，用以確認 LINE 推播功能已成功連線！"
+  };
+  sendLineGroupDispatchNotification(targetId, testTicket);
+  Logger.log("✅ 已發送測試推播至 Target ID: " + targetId);
+}
