@@ -1668,7 +1668,7 @@ window.onerror = function(msg, url, line, col, error) {
                     if (syncTimeout) clearTimeout(syncTimeout);
                     syncTimeout = setTimeout(() => {
                         performCloudSync(false);
-                    }, 2000);
+                    }, 500);
                 };
 
                 const syncAllImportedToGAS = async () => {
