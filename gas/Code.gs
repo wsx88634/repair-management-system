@@ -225,7 +225,10 @@ function doPost(e) {
       for(let i=1; i<tData.length; i++){
           if(tData[i][0]) oldTicketsMap[String(tData[i][0])] = String(tData[i][4] || "未指派");
       }
-      const groupId = getSystemSetting(sysSheet, "LINE_GROUP_ID");
+      let targetId = getSystemSetting(sysSheet, "LINE_GROUP_ID");
+      if (!targetId) {
+        targetId = getSystemSetting(sysSheet, "LINE_USER_ID");
+      }
 
       // 保留表頭，清除舊數據
       const lastRow = ticketSheet.getLastRow();
@@ -237,8 +240,8 @@ function doPost(e) {
         const newEng = t.engineer || "未指派";
         const oldEng = oldTicketsMap[String(t.id)] || "未指派";
         if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
-           if (groupId) {
-               sendLineGroupDispatchNotification(groupId, t);
+           if (targetId) {
+               sendLineGroupDispatchNotification(targetId, t);
            }
         }
         return [
@@ -281,8 +284,13 @@ function handleLineEvents(events, ticketSheet, sysSheet) {
     if (event.type === "message" && event.message && event.message.type === "text") {
       const userText = event.message.text.trim();
       
-            if (event.source && event.source.type === "group" && event.source.groupId) {
-        if (sysSheet) saveSystemSetting(sysSheet, "LINE_GROUP_ID", event.source.groupId);
+      if (event.source) {
+        if (event.source.type === "group" && event.source.groupId) {
+          if (sysSheet) saveSystemSetting(sysSheet, "LINE_GROUP_ID", event.source.groupId);
+        }
+        if (event.source.userId) {
+          if (sysSheet) saveSystemSetting(sysSheet, "LINE_USER_ID", event.source.userId);
+        }
       }
       
       // 檢查通關密語/暗號 (例如包含 888 且包含報修/叫修/派工)
