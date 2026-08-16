@@ -192,8 +192,8 @@ function doPost(e) {
         // LINE Verify 按鈕測試事件：0.1 秒極速回覆 200 OK，防止 LINE 控制台逾時 (Timeout)
         return respondJSON({ status: "success", message: "LINE Verify Success" });
       }
-      const { ticketSheet } = getDbSheets();
-      handleLineEvents(body.events, ticketSheet);
+      const { ticketSheet, sysSheet } = getDbSheets();
+      handleLineEvents(body.events, ticketSheet, sysSheet);
       return respondJSON({ status: "success", message: "LINE Webhook processed" });
     }
 
@@ -219,13 +219,29 @@ function doPost(e) {
 
     // 2. 更新單據資料 (僅在有有效單據陣列時寫入，防護空陣列全清)
     if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
+      // Read old tickets to compare for engineer assignments
+      const tData = ticketSheet.getDataRange().getValues();
+      const oldTicketsMap = {};
+      for(let i=1; i<tData.length; i++){
+          if(tData[i][0]) oldTicketsMap[String(tData[i][0])] = String(tData[i][4] || "未指派");
+      }
+      const groupId = getSystemSetting(sysSheet, "LINE_GROUP_ID");
+
       // 保留表頭，清除舊數據
       const lastRow = ticketSheet.getLastRow();
       if (lastRow > 1) {
         ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
       }
 
-      const rowsToAppend = body.tickets.map(t => [
+      const rowsToAppend = body.tickets.map(t => {
+        const newEng = t.engineer || "未指派";
+        const oldEng = oldTicketsMap[String(t.id)] || "未指派";
+        if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
+           if (groupId) {
+               sendLineGroupDispatchNotification(groupId, t);
+           }
+        }
+        return [
         t.id,
         t.reportTime || "",
         t.customer || "",
@@ -258,11 +274,15 @@ function doPost(e) {
 /**
  * 處理來自 LINE Bot 的訊息事件 (通關密語機制)
  */
-function handleLineEvents(events, ticketSheet) {
+function handleLineEvents(events, ticketSheet, sysSheet) {
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
     if (event.type === "message" && event.message && event.message.type === "text") {
       const userText = event.message.text.trim();
+      
+            if (event.source && event.source.type === "group" && event.source.groupId) {
+        if (sysSheet) saveSystemSetting(sysSheet, "LINE_GROUP_ID", event.source.groupId);
+      }
       
       // 檢查通關密語/暗號 (例如包含 888 且包含報修/叫修/派工)
       const hasPasscode = !LINE_PASSCODE || userText.includes(LINE_PASSCODE);
@@ -400,5 +420,62 @@ function saveImageToDrive(base64Data, fileName) {
     return { status: "success", url: url, fileId: fileId };
   } catch(err) {
     return { status: "error", message: err.toString() };
+  }
+}
+
+
+function getSystemSetting(sysSheet, key) {
+  const data = sysSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === key) return data[i][1];
+  }
+  return null;
+}
+
+function saveSystemSetting(sysSheet, key, value) {
+  const data = sysSheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === key) {
+      sysSheet.getRange(i + 1, 2).setValue(value);
+      return;
+    }
+  }
+  sysSheet.appendRow([key, value]);
+}
+
+function sendLineGroupDispatchNotification(groupId, ticket) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !groupId) return;
+  const url = "https://api.line.me/v2/bot/message/push";
+  const engName = (ticket.engineer || "未指派").split(" ")[0]; // Get first part of engineer name for tag
+  const message = {
+    to: groupId,
+    messages: [
+      {
+        type: "text",
+        text: `🔔 【新叫修派工通知】
+
+👤 負責工程師：@${engName}
+🏢 客戶名稱：${ticket.customer || "未填寫"}
+🔧 報修機型：${ticket.model || "未填寫"}
+⚠️ 問題狀況：${ticket.issue || "未填寫"}
+⏱️ 派工時效：${ticket.slaDays || 3} 天
+
+👉 點此開啟工程師看板接單：
+https://repair-management-system-nu.vercel.app/engineer.html`
+      }
+    ]
+  };
+  const options = {
+    method: "post",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN
+    },
+    payload: JSON.stringify(message)
+  };
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch(e) {
+    console.error("LINE Push Failed:", e);
   }
 }
