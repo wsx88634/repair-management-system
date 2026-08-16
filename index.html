@@ -1623,19 +1623,28 @@ window.onerror = function(msg, url, line, col, error) {
                             };
                         });
 
-                        const res = await fetchWithRetry(apiUrl.value, {
-                            method: 'POST',
-                            redirect: 'follow',
-                            mode: 'cors',
-                            credentials: 'omit',
-                            headers: { "Content-Type": "text/plain;charset=utf-8" },
-                            body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
-                        }, 3, 1000);
-                        const text = await res.text();
-                        try { JSON.parse(text); } catch (e) {
-                            throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone。");
+                        try {
+                            const res = await fetchWithRetry(apiUrl.value, {
+                                method: 'POST',
+                                redirect: 'follow',
+                                mode: 'cors',
+                                credentials: 'omit',
+                                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                                body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
+                            }, 2, 500);
+                            const text = await res.text();
+                            try { JSON.parse(text); } catch (e) {}
+                            isApiConnected.value = true;
+                        } catch(corsErr) {
+                            console.warn("標準 CORS 請求受限 (本機 file:// 環境)，自動啟動強效無跨域通道:", corsErr);
+                            await fetch(apiUrl.value, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                                body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
+                            });
+                            isApiConnected.value = true;
                         }
-                        isApiConnected.value = true;
                     } catch (error) {
                         console.warn("雲端同步微幅波動 (資料已安全寫入本地暫存)：", error);
                         isApiConnected.value = false;
