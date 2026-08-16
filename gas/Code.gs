@@ -452,25 +452,16 @@ function saveSystemSetting(sysSheet, key, value) {
   sysSheet.appendRow([key, value]);
 }
 
-function sendLineGroupDispatchNotification(groupId, ticket) {
-  if (!LINE_CHANNEL_ACCESS_TOKEN || !groupId) return;
+function sendLineGroupDispatchNotification(targetId, ticket) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !targetId) return;
   const url = "https://api.line.me/v2/bot/message/push";
-  const engName = (ticket.engineer || "未指派").split(" ")[0]; // Get first part of engineer name for tag
+  const engName = (ticket.engineer || "未指派").split(" ")[0];
   const message = {
-    to: groupId,
+    to: targetId,
     messages: [
       {
         type: "text",
-        text: `🔔 【新叫修派工通知】
-
-👤 負責工程師：@${engName}
-🏢 客戶名稱：${ticket.customer || "未填寫"}
-🔧 報修機型：${ticket.model || "未填寫"}
-⚠️ 問題狀況：${ticket.issue || "未填寫"}
-⏱️ 派工時效：${ticket.slaDays || 3} 天
-
-👉 點此開啟工程師看板接單：
-https://repair-management-system-nu.vercel.app/engineer.html`
+        text: `🔔 【新叫修派工通知】\n\n👤 負責工程師：@${engName}\n🏢 客戶名稱：${ticket.customer || "未填寫"}\n🔧 報修機型：${ticket.model || "未填寫"}\n⚠️ 問題狀況：${ticket.issue || "未填寫"}\n⏱️ 派工時效：${ticket.slaDays || 3} 天\n📝 詳細備註：${ticket.details || "無"}`
       }
     ]
   };
@@ -480,19 +471,18 @@ https://repair-management-system-nu.vercel.app/engineer.html`
       "Content-Type": "application/json",
       "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN
     },
-    payload: JSON.stringify(message)
+    payload: JSON.stringify(message),
+    muteHttpExceptions: true
   };
-  try {
-    UrlFetchApp.fetch(url, options);
-  } catch(e) {
-    console.error("LINE Push Failed:", e);
+  const resp = UrlFetchApp.fetch(url, options);
+  const code = resp.getResponseCode();
+  const text = resp.getContentText();
+  Logger.log("LINE Push Response: " + code + " " + text);
+  if (code !== 200) {
+    throw new Error("LINE Push API 失敗 (" + code + "): " + text);
   }
 }
 
-
-/**
- * 測試 LINE 派工推播發送功能 (可在 Apps Script 編輯器手動點選「執行」測試)
- */
 function testSendPushNotification() {
   const { sysSheet } = getDbSheets();
   let targetId = getSystemSetting(sysSheet, "LINE_GROUP_ID") || getSystemSetting(sysSheet, "LINE_USER_ID");
