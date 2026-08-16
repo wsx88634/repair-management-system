@@ -40,6 +40,15 @@
     </style>
 </head>
 <body class="bg-[#F8FAFC] text-slate-800 antialiased selection:bg-blue-200 selection:text-blue-900">
+<div id="debug-error" style="position:fixed; top:0; left:0; right:0; background:red; color:white; z-index:99999; padding:20px; font-size: 16px; white-space: pre-wrap; display:none;"></div>
+<script>
+window.onerror = function(msg, url, line, col, error) {
+    var d = document.getElementById("debug-error");
+    d.style.display = "block";
+    d.textContent += msg + "\n" + (error && error.stack ? error.stack : "\) + "\n";
+};
+</script>
+
     <div id="app" v-cloak class="min-h-screen p-4 md:p-6 lg:p-8">
         <div class="max-w-[1400px] mx-auto space-y-6">
             
