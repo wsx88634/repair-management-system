@@ -236,12 +236,17 @@ function doPost(e) {
         ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
       }
 
+      appendPushLog(ss, "收到網頁儲存請求，共 " + body.tickets.length + " 筆單據。TargetID: " + (targetId || "無"));
+
       const rowsToAppend = body.tickets.map(t => {
         const newEng = t.engineer || "未指派";
         const oldEng = oldTicketsMap[String(t.id)] || "未指派";
         if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
            if (targetId) {
+               appendPushLog(ss, "觸發派工通知！單號: " + t.id + ", 客戶: " + t.customer + ", 舊工程師: " + oldEng + " -> 新工程師: " + newEng);
                sendLineGroupDispatchNotification(targetId, t);
+           } else {
+               appendPushLog(ss, "⚠️ 變更工程師但找不到 TargetID，未發送！單號: " + t.id);
            }
         }
         return [
@@ -501,4 +506,17 @@ function testSendPushNotification() {
   };
   sendLineGroupDispatchNotification(targetId, testTicket);
   Logger.log("✅ 已發送測試推播至 Target ID: " + targetId);
+}
+
+
+function appendPushLog(ss, msg) {
+  try {
+    let logSheet = ss.getSheetByName("推送日誌");
+    if (!logSheet) {
+      logSheet = ss.insertSheet("推送日誌");
+      logSheet.appendRow(["時間", "詳細紀錄"]);
+      logSheet.getRange(1, 1, 1, 2).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+    }
+    logSheet.appendRow([new Date().toLocaleString("zh-TW", {timeZone: "Asia/Taipei"}), msg]);
+  } catch(e) {}
 }
