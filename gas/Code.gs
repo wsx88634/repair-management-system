@@ -217,59 +217,65 @@ function doPost(e) {
       }
     }
 
-    // 2. 更新單據資料 (僅在有有效單據陣列時寫入，防護空陣列全清)
+    // 2. 智慧增量更新與派工通知 (絕不清空歷史資料)
     if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
-      // Read old tickets to compare for engineer assignments
-      const tData = ticketSheet.getDataRange().getValues();
-      const oldTicketsMap = {};
-      for(let i=1; i<tData.length; i++){
-          if(tData[i][0]) oldTicketsMap[String(tData[i][0])] = String(tData[i][4] || "未指派");
-      }
-      let targetId = getSystemSetting(sysSheet, "LINE_GROUP_ID");
-      if (!targetId) {
-        targetId = getSystemSetting(sysSheet, "LINE_USER_ID");
-      }
-
-      // 保留表頭，清除舊數據
-      const lastRow = ticketSheet.getLastRow();
-      if (lastRow > 1) {
-        ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
-      }
-
       appendPushLog(ss, "收到網頁儲存請求，共 " + body.tickets.length + " 筆單據。TargetID: " + (targetId || "無"));
 
-      const rowsToAppend = body.tickets.map(t => {
-        const newEng = t.engineer || "未指派";
-        const oldEng = oldTicketsMap[String(t.id)] || "未指派";
-        if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
-           if (targetId) {
-               appendPushLog(ss, "觸發派工通知！單號: " + t.id + ", 客戶: " + t.customer + ", 舊工程師: " + oldEng + " -> 新工程師: " + newEng);
-               sendLineGroupDispatchNotification(targetId, t);
-           } else {
-               appendPushLog(ss, "⚠️ 變更工程師但找不到 TargetID，未發送！單號: " + t.id);
-           }
-        }
-        return [
-        t.id,
-        t.reportTime || "",
-        t.customer || "",
-        t.model || "",
-        t.engineer || "未指派",
-        t.slaDays || 3,
-        t.status || "未執行",
-        t.completedDate || "",
-        t.quoteState || "",
-        t.isArchived ? true : false,
-        t.details || "",
-        JSON.stringify(t.attachments || []),
-        formatDate(new Date()),
-        t.issue || ""
-        ];
-      });
+      // 讀取現有試算表資料建立索引用於比對
+      const tData = ticketSheet.getDataRange().getValues();
+      const sheetRowMap = {}; // id -> rowIndex (1-based)
+      const oldEngMap = {};   // id -> engineer
 
-      if (rowsToAppend.length > 0) {
-        ticketSheet.getRange(2, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
+      for (let i = 1; i < tData.length; i++) {
+        if (tData[i][0]) {
+          const tid = String(tData[i][0]);
+          sheetRowMap[tid] = i + 1;
+          oldEngMap[tid] = String(tData[i][4] || "未指派");
+        }
       }
+
+      body.tickets.forEach(t => {
+        if (!t.id) return;
+        const tid = String(t.id);
+        const newEng = t.engineer || "未指派";
+        const oldEng = oldEngMap[tid] || "未指派";
+
+        // 派工變更偵測與通知
+        if (newEng !== "未指派" && newEng !== oldEng && t.status !== "完修" && t.status !== "取消叫修") {
+          if (targetId) {
+            appendPushLog(ss, "🔔 觸發派工通知！單號: " + tid + ", 客戶: " + t.customer + ", 工程師: " + oldEng + " -> " + newEng);
+            sendLineGroupDispatchNotification(targetId, t);
+          } else {
+            appendPushLog(ss, "⚠️ 派工變更但找不到 TargetID (LINE_USER_ID / LINE_GROUP_ID)");
+          }
+        }
+
+        const rowValues = [
+          t.id,
+          t.reportTime || "",
+          t.customer || "",
+          t.model || "",
+          newEng,
+          t.slaDays || 3,
+          t.status || "未執行",
+          t.completedDate || "",
+          t.quoteState || "",
+          t.isArchived ? true : false,
+          t.details || "",
+          JSON.stringify(t.attachments || []),
+          formatDate(new Date()),
+          t.issue || ""
+        ];
+
+        if (sheetRowMap[tid]) {
+          // 更新已有行
+          ticketSheet.getRange(sheetRowMap[tid], 1, 1, 14).setValues([rowValues]);
+        } else {
+          // 追加新單據
+          ticketSheet.appendRow(rowValues);
+          sheetRowMap[tid] = ticketSheet.getLastRow();
+        }
+      });
     }
 
     return respondJSON({ status: "success", message: "資料同步儲存成功" });
