@@ -60,7 +60,7 @@
 window.onerror = function(msg, url, line, col, error) {
     var d = document.getElementById("debug-error");
     d.style.display = "block";
-    d.textContent += msg + "\n" + (error && error.stack ? error.stack : "\) + "\n";
+    d.textContent += msg + "\n" + (error && error.stack ? error.stack : "") + "\n";
 };
 </script>
 
@@ -1636,13 +1636,36 @@ window.onerror = function(msg, url, line, col, error) {
                             try { JSON.parse(text); } catch (e) {}
                             isApiConnected.value = true;
                         } catch(corsErr) {
-                            console.warn("標準 CORS 請求受限 (本機 file:// 環境)，自動啟動強效無跨域通道:", corsErr);
-                            await fetch(apiUrl.value, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                                body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
-                            });
+                            console.warn("標準 CORS 請求受限 (本機 file:// 環境)，自動啟動強效 iframe 通道:", corsErr);
+                            
+                            // Create hidden iframe if not exists
+                            let iframe = document.getElementById('hidden_gas_iframe');
+                            if (!iframe) {
+                                iframe = document.createElement('iframe');
+                                iframe.name = 'hidden_gas_iframe';
+                                iframe.id = 'hidden_gas_iframe';
+                                iframe.style.display = 'none';
+                                document.body.appendChild(iframe);
+                            }
+
+                            // Create form
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = apiUrl.value;
+                            form.target = 'hidden_gas_iframe';
+                            
+                            // Add payload
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'payload';
+                            input.value = JSON.stringify({ tickets: payloadTickets, engineers: engineers.value });
+                            form.appendChild(input);
+                            
+                            document.body.appendChild(form);
+                            form.submit();
+                            
+                            setTimeout(() => { document.body.removeChild(form); }, 1000);
+                            
                             isApiConnected.value = true;
                         }
                     } catch (error) {

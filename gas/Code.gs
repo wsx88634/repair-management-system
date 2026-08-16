@@ -179,6 +179,12 @@ function doPost(e) {
       } catch (ex) {
         body = {};
       }
+    } else if (e && e.parameter && e.parameter.payload) {
+      try {
+        body = JSON.parse(e.parameter.payload);
+      } catch (ex) {
+        body = {};
+      }
     }
 
     if (body.action === "uploadImage" && body.image) {
