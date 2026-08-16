@@ -489,7 +489,8 @@ function sendLineGroupDispatchNotification(targetId, ticket) {
 }
 
 function testSendPushNotification() {
-  const { sysSheet } = getDbSheets();
+  const { ss, sysSheet } = getDbSheets();
+  appendPushLog(ss, "▶ 手動點擊「執行」測試推播功能中...");
   let targetId = getSystemSetting(sysSheet, "LINE_GROUP_ID") || getSystemSetting(sysSheet, "LINE_USER_ID");
   if (!targetId) {
     Logger.log("❌ 找不到 LINE_GROUP_ID 或 LINE_USER_ID");
