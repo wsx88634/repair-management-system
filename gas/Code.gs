@@ -10,7 +10,7 @@ const TICKET_SHEET_NAME = "叫修單據紀錄";
 const SYSTEM_SHEET_NAME = "系統設定與團隊";
 
 // LINE Bot 自動報修設定
-const LINE_PASSCODE = ""; // 留空代表不需要輸入暗號，在群組發送包含叫修/報修等關鍵字或格式即自動進件 // 通關密語 (包含此暗號且開頭為 報修/叫修/派工 才會自動進件)
+const LINE_PASSCODE = "888"; // 留空代表不需要輸入暗號，在群組發送包含叫修/報修等關鍵字或格式即自動進件 // 通關密語 (包含此暗號且開頭為 報修/叫修/派工 才會自動進件)
 const LINE_CHANNEL_ACCESS_TOKEN = "3MCMc4/f/yB96MxkBtKm5E49QTR3ybLSt0VP+WkUaLWkHziBuUbybaYg9vIK7Ab2/5o5ENV4D8EFUmThyG6TylE5g31yH0tVxUlU40KZOPP32OxjljOVKktKxk6PT4Br3AEMcVkXu6RX209/5zwRSQdB04t89/1O/w1cDnyilFU=";
 
 // 預設真實工程師團隊名單 (9 位團隊成員)
