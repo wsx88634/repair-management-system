@@ -1,33 +1,25 @@
-# 交接檔（handoff.md）
+# 交接檔 (handoff.md)
 
-> 任何 Agent、任何電腦接手前**必讀**；收工時**必更新**。本檔只放交接必需的精簡資訊，詳細脈絡放 Obsidian（若有 L3）。
+> 任何 Agent、任何電腦接手，**必須**先讀取本檔；收工時**必須**更新。本檔只留交接、精簡資訊，詳細脈絡寫 Obsidian（若有 L3）。
 
 ## ⏯️ 目前做到哪
-完成 LINE Bot 群組權限、報修888暗號驗證與數字模板解析優化：
-1. **LINE 機器人群組權限釐清**：
-   - 指引使用者於 LINE Official Account Manager / Developers Console 開啟「Allow bot to join group chats（允許機器人加入群組）」，成功解決機器人被拉進群組後自動退出的問題。
-2. **LINE 群組 ID 自動捕獲驗證**：
-   - 機器人加入工程部 LINE 群組後，已順利自動將 `LINE_GROUP_ID` (`C314b88d96...`) 寫入主試算表「系統設定與團隊」頁面。
-3. **`報修888` 暗號保留與格式解析增強**：
-   - 完整保留 `LINE_PASSCODE = "888"` 暗號驗證機制。
-   - 強化 `handleLineEvents` 對帶有數字編號 (如 `1.客戶名稱:`、`2.設備機型:`、`3.問題狀況:`) 模板文字的 Regex 解析能力與相容容錯。
+- 完成了「PDF 檔案上傳與原生新分頁預覽」功能，全面捨棄會卡死畫面的彈出遮罩。
+- 修復了 `engineer.html` 因腳本替換造成的結構損壞與重複問題。
+- 加入了明確的 Google Drive 權限觸發測試函數 `testAuth` 與 `gas/appsscript.json` 以解決授權問題。
 
-## 🚦 目前狀態與線上驗證
-1. **正式網址運作正常 (Vercel 全球部署)**：
-   - 👔 主看板網址：`https://repair-management-system-nu.vercel.app`
-   - 👷 工程師看板網址：`https://repair-management-system-nu.vercel.app/engineer.html`
-2. **Git 狀態**：
-   - ✅ 已 commit 並成功 push 至 master 分支 (`a39220c`)。
+## 🚦 目前狀態
+- 系統已還原至最穩定狀態，且 PDF 安全版功能已全面上線 Vercel。
+- 測試過程中，使用者因 Apps Script 的「Web App 部署網址不匹配」或「執行身份非 Me」導致上傳遭遇權限錯誤，目前使用者決議**暫時不使用此上傳功能**並先收工。
 
 ## ➡️ 下一步
-- 使用者完成 Apps Script 最新版本（含 `報修888` 暗號與數字模板解析優化）的「管理部署 ➔ 建立新版本 ➔ 部署」。
-- 在工程部 LINE 群組傳送帶有 `報修888` 暗號之訊息進行實體開單測試。
+1. **核對部署網址**：若未來想重啟上傳功能，需確保網頁（⚙️ 設定 ➔ API 網址）填入的是最新 Apps Script 部署生成的 `https://script.google.com/macros/s/...`。
+2. **檢查執行身份**：確保 Apps Script 部署設定為 **「以何者身份執行：我 (Me)」** 及 **「誰有存取權限：所有人 (Anyone)」**。
 
 ## ⚠️ 注意事項
-- Apps Script 修改後，必須於 Google Apps Script 介面中執行「管理部署 ➔ 編輯 ➔ 建立新版本 ➔ 部署」，網頁與 Webhook API 才能吃到最新邏輯。
-- 試算表目前已綁定指定 ID `1MkdyLZ2BRIHcS7WwwklWE47g6h7PJFafq8-cP4wmvn8`。
+- 遇到 `Exception: 你沒有呼叫「DriveApp.Folder.createFile」的權限` 時，表示 Google 雲端硬碟寫入被擋。解法是在 Apps Script 手動執行一次 `testAuth`，並確認部署是以「我 (Me)」的身份執行。
+- 永遠不要用 `<iframe src="data:application/pdf;base64,...">`，會被 Chrome 安全封鎖，改用 Blob URL 與原生新分頁 `window.open`。
 
 ## 🕐 最後更新
-- 時間：2026-08-17 10:25
-- 更新者：阿噗 @ Windows
-- Git push：✅ 已推 (`a39220c`)
+- 更新時間：2026-08-18 02:15
+- 更新者：Antigravity @ Windows
+- Git push：✅ 已推
