@@ -506,3 +506,12 @@ function appendPushLog(ss, msg) {
     logSheet.appendRow([new Date().toLocaleString("zh-TW", {timeZone: "Asia/Taipei"}), msg]);
   } catch(e) {}
 }
+
+
+/**
+ * 專用權限觸發測試：在選單選擇 testAuth 點擊「▶ 執行」，100% 觸發 Google Drive 授權視窗
+ */
+function testAuth() {
+  const folder = getOrCreateDriveFolder();
+  Logger.log('Google Drive 權限已成功授權！資料夾 ID: ' + folder.getId());
+}
