@@ -407,12 +407,15 @@ function saveImageToDrive(base64Data, fileName) {
     const folder = getOrCreateDriveFolder();
     const contentType = base64Data.substring(5, base64Data.indexOf(';'));
     const bytes = Utilities.base64Decode(base64Data.substring(base64Data.indexOf(',') + 1));
-    const blob = Utilities.newBlob(bytes, contentType, fileName || ("repair_image_" + new Date().getTime() + ".jpg"));
+    const isPdf = contentType.includes('pdf') || (fileName && fileName.toLowerCase().endsWith('.pdf'));
+    const defaultName = isPdf ? ("repair_doc_" + new Date().getTime() + ".pdf") : ("repair_image_" + new Date().getTime() + ".jpg");
+    
+    const blob = Utilities.newBlob(bytes, contentType, fileName || defaultName);
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     
     const fileId = file.getId();
-    const url = "https://lh3.googleusercontent.com/d/" + fileId;
+    const url = isPdf ? ("https://drive.google.com/file/d/" + fileId + "/view") : ("https://lh3.googleusercontent.com/d/" + fileId);
     return { status: "success", url: url, fileId: fileId };
   } catch(err) {
     return { status: "error", message: err.toString() };

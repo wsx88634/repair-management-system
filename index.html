@@ -832,7 +832,7 @@ window.onerror = function(msg, url, line, col, error) {
                             <label v-if="!editData.attachments || editData.attachments.length < 10" class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
                                 <l-icon name="cloud-upload" class="w-4 h-4"></l-icon>
                                 新增 / 批次上傳 (最多10張)
-                                <input type="file" accept="image/*" @change="handleImageUpload" class="hidden" multiple />
+                                <input type="file" accept="image/*,application/pdf" @change="handleImageUpload" class="hidden" multiple />
                             </label>
                         </div>
 
@@ -859,7 +859,12 @@ window.onerror = function(msg, url, line, col, error) {
                             <!-- 有圖片時 -->
                             <div v-else class="flex flex-wrap gap-4 items-center justify-center w-full">
                                 <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative group w-36 h-28 rounded-xl border border-slate-300 overflow-hidden shadow-sm bg-black">
-                                    <img :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300 bg-white" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
+                                    <img v-if="!isPdf(img)" :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300 bg-white" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
+                                    <div v-else class="w-full h-full bg-red-50 flex flex-col items-center justify-center p-2 text-center cursor-pointer hover:bg-red-100 transition-colors" @click="openPdf(img)" title="在新分頁開啟 PDF">
+                                        <l-icon name="file-text" class="w-8 h-8 text-red-500 mb-1"></l-icon>
+                                        <span class="text-[11px] font-bold text-red-800 truncate w-full px-1">PDF 文件</span>
+                                        <span class="text-[10px] font-medium text-red-600">在新頁面開啟</span>
+                                    </div>
                                     <button @click="removeAttachment(idx)" class="absolute top-1.5 right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors z-10" title="刪除附件">
                                         <l-icon name="x" class="w-4 h-4"></l-icon>
                                     </button>
@@ -1487,7 +1492,7 @@ window.onerror = function(msg, url, line, col, error) {
                             try { safeAttachments = JSON.parse(rawAttachments); } catch(e) { safeAttachments = [rawAttachments]; }
                         }
 
-                        safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
+                        safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('data:application/pdf') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
                         let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
 
@@ -2109,6 +2114,46 @@ window.onerror = function(msg, url, line, col, error) {
                     }, 300);
                 };
 
+                                const isPdf = (url) => {
+                    if (!url || typeof url !== 'string') return false;
+                    const lower = url.toLowerCase();
+                    return lower.startsWith('data:application/pdf') || 
+                           lower.endsWith('.pdf') || 
+                           lower.includes('.pdf?') ||
+                           (lower.includes('drive.google.com/file/d/') && lower.includes('/view')) ||
+                           lower.includes('application/pdf');
+                };
+
+                const openPdf = (url) => {
+                    if (!url) return;
+                    if (url.startsWith('data:application/pdf')) {
+                        try {
+                            const byteString = atob(url.split(',')[1]);
+                            const ab = new ArrayBuffer(byteString.length);
+                            const ia = new Uint8Array(ab);
+                            for (let i = 0; i < byteString.length; i++) {
+                                ia[i] = byteString.charCodeAt(i);
+                            }
+                            const blob = new Blob([ab], { type: 'application/pdf' });
+                            const blobUrl = URL.createObjectURL(blob);
+                            window.open(blobUrl, '_blank');
+                            return;
+                        } catch(e) {}
+                    }
+                    
+                    let fileId = '';
+                    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    if (driveMatch) fileId = driveMatch[1];
+                    const lh3Match = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+                    if (lh3Match) fileId = lh3Match[1];
+
+                    if (fileId) {
+                        window.open(`https://drive.google.com/file/d/${fileId}/preview`, '_blank');
+                    } else {
+                        window.open(url, '_blank');
+                    }
+                };
+
                 const viewImage = (imgOrList, indexOrList) => {
                     if (Array.isArray(imgOrList)) {
                         imageList.value = imgOrList;
@@ -2201,7 +2246,18 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const uploadImageToDrive = async (file) => {
-                    const base64 = await compressImageToSafeSize(file);
+                    let base64 = '';
+                    const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                    if (isPdfFile) {
+                        base64 = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.onerror = () => reject(new Error("PDF 檔案讀取失敗"));
+                        });
+                    } else {
+                        base64 = await compressImageToSafeSize(file);
+                    }
 
                     if (!apiUrl.value) return base64;
                     const res = await fetchWithRetry(apiUrl.value, {
@@ -2272,7 +2328,7 @@ window.onerror = function(msg, url, line, col, error) {
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     isUnassignedExpanded, isQuoteExpanded,
-                    viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
+                    isPdf, openPdf, viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText, isVideoUrl,
                     activeView, showDayModal, selectedDay, openDayModal, closeDayModal, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
