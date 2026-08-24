@@ -509,9 +509,15 @@ function appendPushLog(ss, msg) {
 
 
 /**
- * 專用權限觸發測試：在選單選擇 testAuth 點擊「▶ 執行」，100% 觸發 Google Drive 授權視窗
+ * 專用權限觸發測試：在選單選擇 testAuth 點擊「▶ 執行」，100% 強制觸發 DriveApp.Folder.createFile 完整授權視窗
  */
 function testAuth() {
   const folder = getOrCreateDriveFolder();
-  Logger.log('Google Drive 權限已成功授權！資料夾 ID: ' + folder.getId());
+  // 強制調用 createFile 觸發 Google Drive 完整寫入授權
+  const testBlob = Utilities.newBlob("auth_verify", "text/plain", "auth_test.txt");
+  const testFile = folder.createFile(testBlob);
+  testFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const fileId = testFile.getId();
+  testFile.setTrashed(true); // 測試完成自動清理
+  Logger.log('🎉 恭喜！Google Drive (包含 createFile) 完整權限已 100% 授權成功！測試檔案 ID: ' + fileId);
 }
