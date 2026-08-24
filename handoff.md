@@ -3,22 +3,23 @@
 > 任何 Agent、任何電腦接手，**必須**先讀取本檔；收工時**必須**更新。本檔只留交接、精簡資訊，詳細脈絡寫 Obsidian（若有 L3）。
 
 ## ⏯️ 目前做到哪
-- 補齊了 Obsidian (L3) 筆記 `專案工作流程.md` 的所有歷史決策與變動日誌。
-- 將 L3 Obsidian 路徑正式登錄至 `agents.md`，確保未來開工/收工皆能自動三層級對齊。
-- 完成了「PDF 檔案上傳與原生新分頁預覽」功能，全面捨棄會卡死畫面的彈出遮罩。
-- 加入了明確的 Google Drive 權限觸發測試函數 `testAuth` 與 `gas/appsscript.json` 以解決授權問題。
+- 深度診斷了 PDF 上傳報 `Exception: 你沒有呼叫「DriveApp.Folder.createFile」的權限` 的根本原因。
+- 升級了 `gas/Code.gs` 的 `testAuth()` 函數，加入主動建立測試檔案並自動刪除機制，能 100% 強制觸發 Google Drive 的 `createFile` 完整寫入權限授權。
+- 在 `index.html` 與 `engineer.html` 中加入了 **PDF 15MB 檔案大小上限防護** 與 **HTML 錯誤回應診斷提醒**。
+- 提供使用者完整的 3 步驟排除流程（替換 `testAuth` ➔ 執行測試 ➔ 發布新版本）。
 
 ## 🚦 目前狀態
-- 系統已還原至最穩定狀態，且三層級同步 (L1 本地 / L2 GitHub / L3 Obsidian) 已 100% 完美對齊。
+- 前後端程式碼已全數優化完成並推送到 GitHub (`master`)。
+- 等待使用者在 Apps Script 執行升級版 `testAuth` 並發布新版本後驗證實際 PDF 檔案上傳。
 
 ## ➡️ 下一步
-1. **核對部署網址**：若未來想重啟 PDF 上傳功能，需確保網頁（⚙️ 設定 ➔ API 網址）填入的是最新 Apps Script 部署生成的 `https://script.google.com/macros/s/...`。
-2. **檢查執行身份**：確保 Apps Script 部署設定為 **「以何者身份執行：我 (Me)」** 及 **「誰有存取權限：所有人 (Anyone)」**。
+1. **驗證 PDF 上傳**：在 Google Apps Script 執行升級版 `testAuth` 並「管理部署作業」發布「建立新版本」後，於網頁測試上傳 `澎湖喜來登20260626.pdf`。
+2. **確認 API 連線設定**：確認網頁 ⚙️ 系統設定中的 API 網址為最新發布之 Web App 網址。
 
 ## ⚠️ 注意事項
-- 遇到 `Exception: 你沒有呼叫「DriveApp.Folder.createFile」的權限` 時，表示 Google 雲端硬碟寫入被擋。解法是在 Apps Script 手動執行一次 `testAuth`，並確認部署是以「我 (Me)」的身份執行。
+- Google Apps Script 每次權限或程式碼更新後，**必須在「管理部署作業」選擇「建立新版本」重新部署**，否則線上 Web App 依然會跑舊版本的權限。
 
 ## 🕐 最後更新
-- 更新時間：2026-08-20 00:32
-- 更新者：Antigravity @ Windows
-- Git push：✅ 已推 (`068d55f`)
+- 更新時間：2026-08-24 15:43 (收工)
+- 更新者：阿噗 @ DESKTOP-U8HAOU6
+- Git push：⏳ 待推
