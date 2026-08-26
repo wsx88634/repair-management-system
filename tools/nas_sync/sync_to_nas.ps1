@@ -1,5 +1,5 @@
 ﻿# ==========================================================
-# 叫修系統 - Google Drive 照片與報價單 NAS 自動同步歸檔工具
+# 叫修系統 - Google Drive 照片、Base64 圖片與報價單 NAS 自動同步歸檔工具
 # ==========================================================
 
 [CmdletBinding()]
@@ -43,17 +43,19 @@ if (-not (Test-Path $HistoryFile)) {
     New-Item -ItemType File -Path $HistoryFile -Force | Out-Null
 }
 
-function Get-HistorySet {
-    $set = [System.Collections.Generic.HashSet[string]]::new()
+function Load-History {
+    $dict = @{}
     if (Test-Path $HistoryFile) {
         $lines = Get-Content -Path $HistoryFile -Encoding utf8
-        foreach ($line in $lines) {
-            if ($line -and $line.Trim()) {
-                $null = $set.Add($line.Trim())
+        if ($lines) {
+            foreach ($line in $lines) {
+                if ($line -and $line.Trim()) {
+                    $dict[$line.Trim()] = $true
+                }
             }
         }
     }
-    return $set
+    return $dict
 }
 
 function Extract-DriveFileId {
@@ -76,6 +78,14 @@ function Sanitize-FileName {
     return $Name.Trim()
 }
 
+function Get-Md5Hash {
+    param ([string]$InputString)
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($InputString)
+    $hash = $md5.ComputeHash($bytes)
+    return [System.BitConverter]::ToString($hash).Replace('-', '').ToLower()
+}
+
 function Sync-Attachments {
     Write-Log '開始檢查叫修雲端資料庫...'
     
@@ -84,7 +94,7 @@ function Sync-Attachments {
         return
     }
 
-    $history = Get-HistorySet
+    $history = Load-History
 
     try {
         $epoch = [int64]((Get-Date).ToUniversalTime() - [datetime]'1970-01-01').TotalSeconds
@@ -115,13 +125,52 @@ function Sync-Attachments {
         $targetFolder = Join-Path $monthPath ($ticketId + '_' + $customer)
 
         $attIndex = 1
-        foreach ($attUrl in $ticket.attachments) {
-            if (-not $attUrl -or $attUrl.StartsWith('data:image')) { continue }
+        foreach ($att in $ticket.attachments) {
+            if (-not $att) { continue }
+            $attStr = [string]$att
 
-            $fileId = Extract-DriveFileId $attUrl
-            if (-not $fileId) { continue }
+            # 情況 1：舊版直接內嵌的 Base64 圖片
+            if ($attStr.StartsWith('data:image') -or $attStr.Length -gt 500) {
+                $base64Hash = Get-Md5Hash $attStr
+                if ($history.ContainsKey($base64Hash)) {
+                    $attIndex++
+                    continue
+                }
 
-            if ($history.Contains($fileId)) {
+                if (-not (Test-Path $targetFolder)) {
+                    New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
+                }
+
+                $fileName = $ticketId + '_' + $customer + '_附件' + $attIndex + '.jpg'
+                $destination = Join-Path $targetFolder $fileName
+
+                try {
+                    Write-Log "🖼️ 正在解碼 Base64 照片：[$ticketId] $customer ➔ $fileName"
+                    $commaIndex = $attStr.IndexOf(',')
+                    $pureBase64 = if ($commaIndex -ge 0) { $attStr.Substring($commaIndex + 1) } else { $attStr }
+                    $bytes = [System.Convert]::FromBase64String($pureBase64)
+                    [System.IO.File]::WriteAllBytes($destination, $bytes)
+
+                    Add-Content -Path $HistoryFile -Value $base64Hash -Encoding utf8
+                    $history[$base64Hash] = $true
+                    $newCount++
+                    Write-Log "✅ 成功存入 NAS：$destination"
+                } catch {
+                    Write-Log "❌ Base64 解碼失敗 ($ticketId)：$($_.Exception.Message)"
+                }
+
+                $attIndex++
+                continue
+            }
+
+            # 情況 2：Google Drive 雲端檔案 (照片或 PDF)
+            $fileId = Extract-DriveFileId $attStr
+            if (-not $fileId) { 
+                $attIndex++
+                continue 
+            }
+
+            if ($history.ContainsKey($fileId)) {
                 $attIndex++
                 continue
             }
@@ -130,7 +179,7 @@ function Sync-Attachments {
                 New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
             }
 
-            $isPdf = $attUrl -match '\.pdf' -or $attUrl -match 'drive\.google\.com/file'
+            $isPdf = $attStr -match '\.pdf' -or $attStr -match 'drive\.google\.com/file'
             $ext = if ($isPdf) { '.pdf' } else { '.jpg' }
             $fileName = $ticketId + '_' + $customer + '_附件' + $attIndex + $ext
             $destination = Join-Path $targetFolder $fileName
@@ -138,11 +187,11 @@ function Sync-Attachments {
             $downloadUrl = 'https://drive.google.com/uc?export=download&id=' + $fileId
             
             try {
-                Write-Log "📥 正在下載：[$ticketId] $customer ➔ $fileName"
+                Write-Log "📥 正在下載雲端檔案：[$ticketId] $customer ➔ $fileName"
                 Invoke-WebRequest -Uri $downloadUrl -OutFile $destination -TimeoutSec 60
                 
                 Add-Content -Path $HistoryFile -Value $fileId -Encoding utf8
-                $null = $history.Add($fileId)
+                $history[$fileId] = $true
                 $newCount++
                 Write-Log "✅ 成功存入 NAS：$destination"
             } catch {

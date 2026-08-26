@@ -18,6 +18,7 @@
 - LINE Bot 自動進件 Webhook 解構、行事曆「未執行/完修」狀態篩選與日期點擊總覽 Modal 實裝：2026-08-15
 - 試算表 SPREADSHEET_ID 永久鎖定與後端安定性回滾修復：2026-08-17
 - PDF 上傳 createFile 權限觸發升級、15MB 限制防護與 HTML 錯誤診斷優化：2026-08-24
+- 公司辦公室專用 Google Drive 照片與報價單 NAS 自動同步歸檔工具包實裝與驗證：2026-08-26
 
 ## Obsidian 筆記路徑 (L3 同步)
 - g:/我的雲端硬碟/secondbrain/叫修輔助管理系統/專案工作流程.md
