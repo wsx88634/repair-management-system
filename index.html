@@ -1221,6 +1221,9 @@ window.onerror = function(msg, url, line, col, error) {
                 const settingsPasswordInput = ref("");
                 const apiUrlInput = ref(apiUrl.value);
                 const isApiConnected = ref(false);
+                const localEngs = localStorage.getItem("local_repair_engineers_v2");
+                const initialEngs = localEngs ? JSON.parse(localEngs) : defaultEngineers;
+                const engineers = ref([...initialEngs]);
 
                 const initialLocalData = (() => {
                     const raw = localStorage.getItem("local_repair_tickets_v2");
