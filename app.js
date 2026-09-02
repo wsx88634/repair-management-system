@@ -395,6 +395,60 @@ const App = {
             }
         };
 
+        const formatCurrentTime = () => {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+        };
+
+        const addTicketLog = (ticket, action, detail, actor = '') => {
+            if (!ticket) return;
+            if (!ticket.logs || !Array.isArray(ticket.logs)) {
+                ticket.logs = [];
+            }
+            ticket.logs.unshift({
+                time: formatCurrentTime(),
+                action: action,
+                detail: detail,
+                actor: actor
+            });
+        };
+
+        const getDisplayLogs = (ticket) => {
+            if (!ticket) return [];
+            if (ticket.logs && Array.isArray(ticket.logs) && ticket.logs.length > 0) {
+                return ticket.logs;
+            }
+            const generated = [];
+            if (ticket.completedDate && ['完修', '報價', '取消叫修'].includes(ticket.status)) {
+                generated.push({
+                    time: `${ticket.completedDate} 18:00`,
+                    action: ticket.status === '完修' ? '完修紀錄' : (ticket.status === '報價' ? '報價狀態' : '案件結案'),
+                    detail: `${ticket.engineer || '工程師'} 標記為「${ticket.status}」${ticket.quoteState ? ` (報價進度: ${ticket.quoteState})` : ''}`,
+                    actor: ticket.engineer || '工程師'
+                });
+            }
+            if (ticket.engineer && ticket.engineer !== '未指派') {
+                generated.push({
+                    time: `${ticket.reportTime || '2026-08-01'} 10:00`,
+                    action: '派工異動',
+                    detail: `指派負責工程師為「${ticket.engineer}」`,
+                    actor: '系統/管理者'
+                });
+            }
+            generated.push({
+                time: `${ticket.reportTime || '2026-08-01'} 09:00`,
+                action: '案件成立',
+                detail: `建立叫修案件 (客戶: ${ticket.customer || '未填寫'}，機型: ${ticket.model || '未填寫'})`,
+                actor: '系統/管理員'
+            });
+            return generated;
+        };
+
         const isOverdue = (ticket) => {
             if (["報價", "完修", "取消叫修"].includes(ticket.status)) return false;
             const diffTime = new Date().getTime() - new Date(ticket.reportTime).getTime();
@@ -407,13 +461,23 @@ const App = {
             const ticketId = e.dataTransfer.getData("ticketId");
             const index = tickets.value.findIndex(t => t.id === ticketId);
             if (index !== -1) {
+                const oldTicket = tickets.value[index];
                 const newStatus = targetEngineer === '未指派' ? '未執行' : targetStatus;
                 const updatedTicket = {
-                    ...tickets.value[index],
+                    ...oldTicket,
                     engineer: targetEngineer,
                     status: newStatus
                 };
                 handleDateAndStatus(updatedTicket, newStatus);
+
+                if (targetEngineer !== oldTicket.engineer) {
+                    addTicketLog(updatedTicket, '派工異動', `負責工程師由「${oldTicket.engineer || '未指派'}」改派給「${targetEngineer}」`, '看板拖曳');
+                }
+                if (newStatus !== oldTicket.status) {
+                    const act = newStatus === '完修' ? '完修紀錄' : (newStatus === '報價' ? '報價狀態' : '狀態變更');
+                    addTicketLog(updatedTicket, act, `狀態由「${oldTicket.status}」移至「${newStatus}」${newStatus === '完修' ? ` (完修日: ${updatedTicket.completedDate})` : ''}`, '看板拖曳');
+                }
+
                 tickets.value.splice(index, 1, updatedTicket);
                 await saveData();
             }
@@ -429,7 +493,7 @@ const App = {
                 return;
             }
             const newId = `T-${Math.floor(Math.random() * 9000 + 1000)}`;
-            tickets.value.push({
+            const newTicket = {
                 ...formData,
                 id: newId,
                 status: "未執行",
@@ -437,8 +501,14 @@ const App = {
                 completedDate: '',
                 quoteState: '',
                 isArchived: false,
-                attachments: []
-            });
+                attachments: [],
+                logs: []
+            };
+            addTicketLog(newTicket, '案件成立', `建立叫修案件 (客戶: ${newTicket.customer}，機型: ${newTicket.model})`, '系統/管理者');
+            if (newTicket.engineer && newTicket.engineer !== '未指派') {
+                addTicketLog(newTicket, '派工異動', `初始指派負責工程師為「${newTicket.engineer}」`, '系統/管理者');
+            }
+            tickets.value.push(newTicket);
             formData.customer = ""; formData.model = ""; formData.details = ""; formData.engineer = "未指派";
             await saveData();
         };
@@ -452,8 +522,24 @@ const App = {
         const saveTicketModal = async () => {
             const index = tickets.value.findIndex(t => t.id === editData.value.id);
             if (index !== -1) {
+                const old = tickets.value[index];
                 if (editData.value.engineer === '未指派') editData.value.status = '未執行';
                 handleDateAndStatus(editData.value, editData.value.status);
+
+                if (editData.value.engineer !== old.engineer) {
+                    addTicketLog(editData.value, '派工異動', `負責工程師由「${old.engineer || '未指派'}」變更為「${editData.value.engineer}」`, '管理設定');
+                }
+                if (editData.value.status !== old.status) {
+                    const act = editData.value.status === '完修' ? '完修紀錄' : (editData.value.status === '報價' ? '報價狀態' : '狀態變更');
+                    addTicketLog(editData.value, act, `狀態由「${old.status}」變更為「${editData.value.status}」${editData.value.completedDate ? ` (完修日: ${editData.value.completedDate})` : ''}`, '管理設定');
+                }
+                if (editData.value.quoteState && editData.value.quoteState !== old.quoteState) {
+                    addTicketLog(editData.value, '報價狀態', `報價進度更新為「${editData.value.quoteState}」`, '管理設定');
+                }
+                if (editData.value.completedDate && editData.value.completedDate !== old.completedDate && editData.value.status === old.status) {
+                    addTicketLog(editData.value, '完修紀錄', `更新完修日期為 ${editData.value.completedDate}`, '管理設定');
+                }
+
                 tickets.value[index] = { ...editData.value };
             }
             closeTicketModal();
@@ -470,6 +556,7 @@ const App = {
                 const index = tickets.value.findIndex(t => t.id === id);
                 if (index !== -1) {
                     tickets.value[index].isArchived = true;
+                    addTicketLog(tickets.value[index], '案件封存', '案件已標記為封存結案', '管理者');
                 }
                 if (selectedTicket.value?.id === id) closeTicketModal();
                 await saveData();
@@ -480,6 +567,7 @@ const App = {
             const index = tickets.value.findIndex(t => t.id === id);
             if (index !== -1) {
                 tickets.value[index].isArchived = false;
+                addTicketLog(tickets.value[index], '其他異動', '案件已解除封存並還原至主看板', '管理者');
                 if (selectedTicket.value?.id === id) editData.value.isArchived = false;
                 await saveData();
             }
@@ -786,7 +874,7 @@ const App = {
             statuses, engineers, tickets, formData, getTickets, getStatusColor,
             isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
             showEngModal, newEngName, editEngIndex, editEngName, addEngineer, startEditEngineer, saveEngineerEdit, confirmDeleteEngineer,
-            selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal,
+            selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, getDisplayLogs,
             confirmDialog, executeConfirm, isLoading,
             confirmArchiveTicket, unarchiveTicket, confirmHardDeleteTicket, confirmBatchArchive,
             captureBoard, captureSection, showExportModal, exportDateRange, openExportModal, executeExport, executeExportAll,

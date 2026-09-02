@@ -132,6 +132,15 @@ function doGet(e) {
           }
         }
 
+        let logs = [];
+        if (row[14]) {
+          try {
+            logs = typeof row[14] === 'string' && row[14].startsWith('[') ? JSON.parse(row[14]) : [];
+          } catch(ex) {
+            logs = [];
+          }
+        }
+
         const detailsStr = String(row[10] || "");
         const firstLineIssue = detailsStr.trim() ? detailsStr.trim().split('\n')[0].trim() : "";
 
@@ -148,7 +157,8 @@ function doGet(e) {
           quoteState: String(row[8] || ""),
           isArchived: Boolean(row[9] === true || row[9] === "TRUE" || row[9] === "true"),
           details: detailsStr,
-          attachments: attachments
+          attachments: attachments,
+          logs: logs
         });
       }
     }
@@ -223,11 +233,11 @@ function doPost(e) {
       }
     }
 
-    // 2. 更新單據資料 (穩定覆蓋版，無 LINE 推播干擾)
+    // 2. 更新單據資料 (穩定覆蓋版，支援 logs 時間軸紀錄)
     if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
       const lastRow = ticketSheet.getLastRow();
       if (lastRow > 1) {
-        ticketSheet.getRange(2, 1, lastRow - 1, 14).clearContent();
+        ticketSheet.getRange(2, 1, lastRow - 1, 15).clearContent();
       }
 
       const rowsToAppend = body.tickets.map(t => {
@@ -245,12 +255,13 @@ function doPost(e) {
           t.details || "",
           JSON.stringify(t.attachments || []),
           formatDate(new Date()),
-          t.issue || ""
+          t.issue || "",
+          JSON.stringify(t.logs || [])
         ];
       });
 
       if (rowsToAppend.length > 0) {
-        ticketSheet.getRange(2, 1, rowsToAppend.length, 14).setValues(rowsToAppend);
+        ticketSheet.getRange(2, 1, rowsToAppend.length, 15).setValues(rowsToAppend);
       }
     }
 
