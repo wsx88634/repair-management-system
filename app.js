@@ -618,7 +618,34 @@ const App = {
             isLoading.value = true;
             setTimeout(() => {
                 html2canvas(sectionEl, {
-                    useCORS: true, backgroundColor: '#F8FAFC', scale: 2, logging: false
+                    useCORS: true, backgroundColor: '#F8FAFC', scale: 2.5, logging: false,
+                    onclone: (clonedDoc) => {
+                        const style = clonedDoc.createElement('style');
+                        style.innerHTML = `
+                            * { 
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft YaHei", "微軟正黑體", sans-serif !important;
+                                letter-spacing: normal !important;
+                            }
+                            .truncate { 
+                                white-space: normal !important; 
+                                overflow: visible !important; 
+                                text-overflow: clip !important; 
+                                line-height: 1.45 !important; 
+                                padding-bottom: 3px !important; 
+                                display: block !important; 
+                            }
+                            div, span, p, h1, h2, h3, h4, button, a { 
+                                line-height: 1.45 !important; 
+                                padding-bottom: 2px !important; 
+                            }
+                        `;
+                        clonedDoc.head.appendChild(style);
+                        const target = clonedDoc.getElementById(elementId);
+                        if (target) {
+                            target.style.height = 'max-content';
+                            target.style.overflow = 'visible';
+                        }
+                    }
                 }).then(canvas => {
                     const link = document.createElement('a');
                     link.setAttribute('download', `${prefix}_${new Date().toISOString().split('T')[0]}.jpg`);
@@ -639,7 +666,44 @@ const App = {
             isLoading.value = true;
             setTimeout(() => {
                 html2canvas(boardEl, {
-                    useCORS: true, backgroundColor: '#F8FAFC', scale: 2, logging: false
+                    useCORS: true, backgroundColor: '#F8FAFC', scale: 2.5, logging: false,
+                    onclone: (clonedDoc) => {
+                        const style = clonedDoc.createElement('style');
+                        style.innerHTML = `
+                            * { 
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft YaHei", "微軟正黑體", sans-serif !important;
+                                letter-spacing: normal !important;
+                            }
+                            .truncate { 
+                                white-space: normal !important; 
+                                overflow: visible !important; 
+                                text-overflow: clip !important; 
+                                line-height: 1.45 !important; 
+                                padding-bottom: 3px !important; 
+                                display: block !important; 
+                            }
+                            div, span, p, h1, h2, h3, h4, button, a { 
+                                line-height: 1.45 !important; 
+                                padding-bottom: 2px !important; 
+                            }
+                        `;
+                        clonedDoc.head.appendChild(style);
+
+                        const cb = clonedDoc.getElementById('kanban-board');
+                        if (cb) {
+                            cb.style.minWidth = 'max-content'; 
+                            cb.style.height = 'max-content'; 
+                            cb.style.overflow = 'visible';
+                            cb.style.paddingBottom = '20px';
+                            cb.querySelectorAll('.truncate').forEach(el => { 
+                                el.classList.remove('truncate'); 
+                                el.style.whiteSpace = 'normal'; 
+                                el.style.wordBreak = 'break-word';
+                                el.style.lineHeight = '1.45';
+                                el.style.paddingBottom = '3px';
+                            });
+                        }
+                    }
                 }).then(canvas => {
                     const link = document.createElement('a');
                     link.setAttribute('download', `主看板狀態_${new Date().toISOString().split('T')[0]}.jpg`);
