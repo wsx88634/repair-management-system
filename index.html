@@ -1222,8 +1222,17 @@ window.onerror = function(msg, url, line, col, error) {
                 const apiUrlInput = ref(apiUrl.value);
                 const isApiConnected = ref(false);
 
-                const engineers = ref([...defaultEngineers]);
-                const tickets = ref([...defaultTickets]);
+                const initialLocalData = (() => {
+                    const raw = localStorage.getItem("local_repair_tickets_v2");
+                    if (raw) {
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                        } catch(e) {}
+                    }
+                    return defaultTickets;
+                })();
+                const tickets = ref(initialLocalData);
                 const isLoading = ref(false);
                 const isSaving = ref(false);
                 const isUploadingImage = ref(false);
@@ -1558,6 +1567,13 @@ window.onerror = function(msg, url, line, col, error) {
 
                         let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
 
+                        let safeLogs = [];
+                        if (inc.logs && Array.isArray(inc.logs) && inc.logs.length > 0) {
+                            safeLogs = inc.logs;
+                        } else if (local && local.logs && Array.isArray(local.logs) && local.logs.length > 0) {
+                            safeLogs = local.logs;
+                        }
+
                         return {
                             ...local,
                             ...inc,
@@ -1568,7 +1584,8 @@ window.onerror = function(msg, url, line, col, error) {
                             quoteState: inc.quoteState || (local ? local.quoteState : '') || '',
                             isArchived: inc.isArchived !== undefined ? inc.isArchived : (local ? local.isArchived : false),
                             details: inc.details || (local ? local.details : '') || '',
-                            attachments: safeAttachments
+                            attachments: safeAttachments,
+                            logs: safeLogs
                         };
                     });
 
@@ -1686,7 +1703,8 @@ window.onerror = function(msg, url, line, col, error) {
                                 completedDate: t.completedDate || '',
                                 quoteState: t.quoteState || '',
                                 isArchived: t.isArchived || false,
-                                attachments: safeAttachments
+                                attachments: safeAttachments,
+                                logs: t.logs || []
                             };
                         });
 
@@ -2001,6 +2019,9 @@ window.onerror = function(msg, url, line, col, error) {
                     const copy = JSON.parse(JSON.stringify(ticket));
                     if (!copy.issue) {
                         copy.issue = copy.details ? copy.details.split('\n')[0].trim() : '';
+                    }
+                    if (!copy.logs || !Array.isArray(copy.logs)) {
+                        copy.logs = (ticket.logs && Array.isArray(ticket.logs)) ? [...ticket.logs] : [];
                     }
                     editData.value = copy;
                 };

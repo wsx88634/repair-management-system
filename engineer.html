@@ -1079,6 +1079,13 @@ window.onerror = function(msg, url, line, col, error) {
 
                         let safeStatus = normalizeStatus(inc.status || '未執行');
 
+                        let safeLogs = [];
+                        if (inc.logs && Array.isArray(inc.logs) && inc.logs.length > 0) {
+                            safeLogs = inc.logs;
+                        } else if (local && local.logs && Array.isArray(local.logs) && local.logs.length > 0) {
+                            safeLogs = local.logs;
+                        }
+
                         if (local && (isSaving.value || selectedTicket.value?.id === inc.id)) {
                             return {
                                 ...inc,
@@ -1091,6 +1098,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 model: local.model,
                                 details: local.details,
                                 attachments: local.attachments || attachmentsList,
+                                logs: safeLogs,
                                 isArchived: inc.isArchived || false
                             };
                         }
@@ -1103,6 +1111,7 @@ window.onerror = function(msg, url, line, col, error) {
                             status: safeStatus,
                             quoteState: inc.quoteState || '',
                             attachments: attachmentsList,
+                            logs: safeLogs,
                             isArchived: inc.isArchived || false
                         };
                     });
@@ -1405,6 +1414,9 @@ window.onerror = function(msg, url, line, col, error) {
                     const copy = JSON.parse(JSON.stringify(ticket));
                     if (!copy.issue) {
                         copy.issue = copy.details ? copy.details.split('\n')[0].trim() : '';
+                    }
+                    if (!copy.logs || !Array.isArray(copy.logs)) {
+                        copy.logs = (ticket.logs && Array.isArray(ticket.logs)) ? [...ticket.logs] : [];
                     }
                     editData.value = copy;
                 };
