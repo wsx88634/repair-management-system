@@ -49,7 +49,7 @@
 window.onerror = function(msg, url, line, col, error) {
     var d = document.getElementById("debug-error");
     d.style.display = "block";
-    d.textContent += msg + "\n" + (error && error.stack ? error.stack : "\) + "\n";
+    d.textContent += msg + "\n" + (error && error.stack ? error.stack : "") + "\n";
 };
 </script>
 
@@ -1225,6 +1225,9 @@ window.onerror = function(msg, url, line, col, error) {
                     } catch (error) {
                         console.warn("API 讀取未完成，目前使用本地預設/快取資料:", error);
                         isApiConnected.value = false;
+                    } finally {
+                        if (!isBackground) isLoading.value = false;
+                    }
                 };
 
                 let syncTimeout = null;
@@ -1827,7 +1830,7 @@ window.onerror = function(msg, url, line, col, error) {
             var d = document.getElementById("debug-error");
             if(d) {
                 d.style.display = "block";
-                d.textContent += "VUE ERROR: " + err.toString() + "\n" + (err.stack ? err.stack : "\) + "\nInfo: " + info + "\n";
+                d.textContent += "VUE ERROR: " + err.toString() + "\n" + (err.stack ? err.stack : "") + "\nInfo: " + info + "\n";
             }
         };
         app.component('l-icon', {
