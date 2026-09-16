@@ -101,9 +101,6 @@ window.onerror = function(msg, url, line, col, error) {
                         <button @click="confirmBatchArchive" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-amber-500/20">
                             <l-icon name="archive" class="w-4 h-4"></l-icon> 一鍵封存結案
                         </button>
-                        <button @click="forceSyncToCloud" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20">
-                            <l-icon name="upload-cloud" class="w-4 h-4"></l-icon> 同步寫入雲端
-                        </button>
                         <button @click="manualRefresh" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
                             <l-icon name="refresh-cw" class="w-4 h-4"></l-icon> 重新整理
                         </button>
@@ -1117,10 +1114,16 @@ window.onerror = function(msg, url, line, col, error) {
                     </div>
                 </div>
 
-                <div v-if="isSettingsAuthenticated" class="bg-slate-50 px-6 py-4 flex justify-between items-center border-t border-slate-200">
-                    <button @click="clearApiSettings" class="text-slate-500 hover:text-red-600 text-xs font-bold">清空網址 (切回 Mock 模式)</button>
+                <div v-if="isSettingsAuthenticated" class="bg-slate-50 px-6 py-4 flex flex-wrap justify-between items-center gap-3 border-t border-slate-200">
                     <div class="flex items-center gap-2">
-                        <button @click="closeSettingsModal" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600">取消</button>
+                        <button @click="clearApiSettings" class="text-slate-500 hover:text-red-600 text-xs font-bold">清空網址 (切回 Mock 模式)</button>
+                        <span class="text-slate-300">|</span>
+                        <button @click="forceSyncToCloud" class="text-emerald-700 hover:text-emerald-800 text-xs font-bold flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors">
+                            <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon> 手動強制覆寫雲端
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="closeSettingsModal" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200">取消</button>
                         <button @click="saveApiSettings" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md">儲存並測試連線</button>
                     </div>
                 </div>
@@ -1547,17 +1550,56 @@ window.onerror = function(msg, url, line, col, error) {
                     return str.split('T')[0].split(' ')[0];
                 };
 
-                const mergeTickets = (incoming) => {
-                    if (!incoming || !Array.isArray(incoming)) return tickets.value;
-                    const incomingMap = new Map(incoming.map(t => [String(t.id), t]));
-                    const localMap = new Map(tickets.value.map(t => [String(t.id), t]));
+                const deduplicateTickets = (list) => {
+                    if (!Array.isArray(list)) return [];
+                    const map = new Map();
+                    list.forEach(t => {
+                        if (t && t.id) {
+                            const sid = String(t.id).trim();
+                            if (!map.has(sid)) {
+                                map.set(sid, t);
+                            }
+                        }
+                    });
+                    return Array.from(map.values());
+                };
 
-                    const merged = incoming.map(inc => {
-                        const local = localMap.get(String(inc.id));
+                const mergeTickets = (incoming) => {
+                    if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+                    
+                    // 1. 本地現有單據 Map
+                    const localMap = new Map();
+                    (tickets.value || []).forEach(t => {
+                        if (t && t.id) localMap.set(String(t.id).trim(), t);
+                    });
+
+                    // 2. 雲端傳入單據去重 Map (防試算表有重複單號列)
+                    const incomingMap = new Map();
+                    incoming.forEach(inc => {
+                        if (inc && inc.id) {
+                            const sid = String(inc.id).trim();
+                            if (!incomingMap.has(sid)) {
+                                incomingMap.set(sid, inc);
+                            }
+                        }
+                    });
+
+                    const mergedMap = new Map();
+
+                    // 3. 合併雲端與本地單據
+                    incomingMap.forEach((inc, id) => {
+                        const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || (local ? local.reportTime : ''));
                         let safeCompletedDate = formatLocalDate(inc.completedDate || (local ? local.completedDate : '') || '');
-
                         let safeStatus = normalizeStatus(inc.status || (local ? local.status : "未執行"));
+
+                        // 若本機正在儲存中，或目前正在彈窗編輯此單，以本機狀態為最高優先級
+                        let finalEngineer = inc.engineer || (local ? local.engineer : '未指派');
+                        let finalStatus = safeStatus;
+                        if (local && (isSaving.value || (selectedTicket.value && String(selectedTicket.value.id) === id))) {
+                            finalEngineer = local.engineer || finalEngineer;
+                            finalStatus = normalizeStatus(local.status || finalStatus);
+                        }
 
                         let safeAttachments = [];
                         let rawAttachments = (inc.attachments && inc.attachments.length > 0) ? inc.attachments : (local ? local.attachments : []);
@@ -1565,7 +1607,6 @@ window.onerror = function(msg, url, line, col, error) {
                         else if (typeof rawAttachments === 'string') {
                             try { safeAttachments = JSON.parse(rawAttachments); } catch(e) { safeAttachments = [rawAttachments]; }
                         }
-
                         safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('data:application/pdf') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
                         let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
@@ -1577,11 +1618,12 @@ window.onerror = function(msg, url, line, col, error) {
                             safeLogs = local.logs;
                         }
 
-                        return {
+                        mergedMap.set(id, {
                             ...local,
                             ...inc,
+                            engineer: finalEngineer,
+                            status: finalStatus,
                             issue: safeIssue,
-                            status: safeStatus,
                             reportTime: safeReportDate,
                             completedDate: safeCompletedDate,
                             quoteState: inc.quoteState || (local ? local.quoteState : '') || '',
@@ -1589,16 +1631,17 @@ window.onerror = function(msg, url, line, col, error) {
                             details: inc.details || (local ? local.details : '') || '',
                             attachments: safeAttachments,
                             logs: safeLogs
-                        };
+                        });
                     });
 
-                    tickets.value.forEach(local => {
-                        if (!incomingMap.has(String(local.id))) {
-                            merged.push(local);
+                    // 4. 合併本機尚未推送至雲端的新單據
+                    localMap.forEach((local, id) => {
+                        if (!mergedMap.has(id)) {
+                            mergedMap.set(id, local);
                         }
                     });
 
-                    return merged;
+                    return Array.from(mergedMap.values());
                 };
 
                 const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
@@ -1626,11 +1669,13 @@ window.onerror = function(msg, url, line, col, error) {
 
                 const fetchData = async (isBackground) => {
                     const isSilent = isBackground === true;
+                    if (isSaving.value || isSyncing) return; // 正在進行本機寫入時，跳過背景讀取避免暫態舊資料覆蓋
+
                     if (!apiUrl.value) {
                         const localData = localStorage.getItem("local_repair_tickets_v2");
                         const localEngs = localStorage.getItem("local_repair_engineers_v2");
-                        if (localData) { try { tickets.value = JSON.parse(localData); } catch(e){} }
-                        else if (defaultTickets.length > 0) { tickets.value = [...defaultTickets]; }
+                        if (localData) { try { tickets.value = deduplicateTickets(JSON.parse(localData)); } catch(e){} }
+                        else if (defaultTickets.length > 0) { tickets.value = deduplicateTickets([...defaultTickets]); }
 
                         if (localEngs) { try { engineers.value = JSON.parse(localEngs); } catch(e){} }
                         else if (defaultEngineers.length > 0) { engineers.value = [...defaultEngineers]; }
@@ -1657,11 +1702,11 @@ window.onerror = function(msg, url, line, col, error) {
                         if (data.tickets && Array.isArray(data.tickets)) {
                             if (data.tickets.length === 0 && defaultTickets.length > 0) {
                                 console.log("GAS 試算表目前為空，自動一鍵推送全量 434 筆歷史叫修單據...");
-                                tickets.value = [...defaultTickets];
+                                tickets.value = deduplicateTickets([...defaultTickets]);
                                 engineers.value = [...defaultEngineers];
                                 await saveData();
                             } else {
-                                tickets.value = mergeTickets(data.tickets);
+                                tickets.value = deduplicateTickets(mergeTickets(data.tickets));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                         }
@@ -1683,7 +1728,6 @@ window.onerror = function(msg, url, line, col, error) {
                         }
                     } finally {
                         if (!isSilent) isLoading.value = false;
-                    }
                 };
 
                 let syncTimeout = null;
@@ -1839,11 +1883,29 @@ window.onerror = function(msg, url, line, col, error) {
                     fetchData(false);
                 };
 
+                // ⚡ 自動保溫心跳 (Keep-Alive Ping)：每 3 分鐘輕量 ping 一次，避免 GAS 進入冷啟動休眠
+                let keepAliveTimer = null;
+                const startKeepAlive = () => {
+                    if (keepAliveTimer) clearInterval(keepAliveTimer);
+                    keepAliveTimer = setInterval(() => {
+                        if (apiUrl.value && !isSyncing && !isSaving.value && !isLoading.value) {
+                            fetch(`${apiUrl.value}?action=ping&t=${Date.now()}`, {
+                                method: 'GET',
+                                mode: 'cors',
+                                credentials: 'omit'
+                            }).then(() => {
+                                isApiConnected.value = true;
+                            }).catch(() => {});
+                        }
+                    }, 180000); // 3 分鐘
+                };
+
                 onMounted(() => {
                     window.addEventListener('keydown', handleKeyDown);
                     fetchData(false);
+                    startKeepAlive();
                     setInterval(() => {
-                        if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen && !viewingImage.value) {
+                        if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen && !viewingImage.value && !isSaving.value && !isSyncing) {
                             fetchData(true);
                         }
                     }, 60000);

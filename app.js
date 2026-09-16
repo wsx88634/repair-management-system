@@ -202,10 +202,42 @@ const App = {
         });
 
         // === 資料讀取與寫入 ===
+        const deduplicateTickets = (list) => {
+            if (!Array.isArray(list)) return [];
+            const map = new Map();
+            list.forEach(t => {
+                if (t && t.id) {
+                    const sid = String(t.id).trim();
+                    if (!map.has(sid)) {
+                        map.set(sid, t);
+                    }
+                }
+            });
+            return Array.from(map.values());
+        };
+
         const mergeTickets = (incoming) => {
-            const localMap = new Map(tickets.value.map(t => [t.id, t]));
-            return incoming.map(inc => {
-                const local = localMap.get(inc.id);
+            if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+
+            const localMap = new Map();
+            (tickets.value || []).forEach(t => {
+                if (t && t.id) localMap.set(String(t.id).trim(), t);
+            });
+
+            const incomingMap = new Map();
+            incoming.forEach(inc => {
+                if (inc && inc.id) {
+                    const sid = String(inc.id).trim();
+                    if (!incomingMap.has(sid)) {
+                        incomingMap.set(sid, inc);
+                    }
+                }
+            });
+
+            const mergedMap = new Map();
+
+            incomingMap.forEach((inc, id) => {
+                const local = localMap.get(id);
                 let safeReportDate = String(inc.reportTime || "");
                 if (safeReportDate.includes("T")) safeReportDate = safeReportDate.split("T")[0];
                 else safeReportDate = safeReportDate.split(" ")[0];
@@ -214,11 +246,15 @@ const App = {
                 if (safeCompletedDate && safeCompletedDate.includes("T")) safeCompletedDate = safeCompletedDate.split("T")[0];
 
                 let safeStatus = inc.status || "未執行";
-                if (safeStatus === "零件到達/待處理" || safeStatus === "未完成 另約時間") {
+                if (safeStatus === "零件到達/待處理" || safeStatus === "未完成 另約時間" || safeStatus === "處理中") {
                     safeStatus = "未完成 / 另約時間";
                 }
-                if (safeStatus === "處理中") {
-                    safeStatus = "未完成 / 另約時間";
+
+                let finalEngineer = inc.engineer || (local ? local.engineer : '未指派');
+                let finalStatus = safeStatus;
+                if (local && (isSaving.value || (selectedTicket.value && String(selectedTicket.value.id) === id))) {
+                    finalEngineer = local.engineer || finalEngineer;
+                    finalStatus = local.status || finalStatus;
                 }
 
                 let safeAttachments = [];
@@ -226,26 +262,46 @@ const App = {
                 if (Array.isArray(rawAttachments)) safeAttachments = rawAttachments;
                 else if (typeof rawAttachments === 'string' && rawAttachments.startsWith('data:image')) safeAttachments = [rawAttachments];
 
-                safeAttachments = safeAttachments.filter(item => typeof item === 'string' && item.startsWith('data:image')).slice(0, 1);
+                safeAttachments = safeAttachments.filter(item => typeof item === 'string' && item.startsWith('data:image')).slice(0, 10);
 
-                return {
+                let safeLogs = [];
+                if (inc.logs && Array.isArray(inc.logs) && inc.logs.length > 0) {
+                    safeLogs = inc.logs;
+                } else if (local && local.logs && Array.isArray(local.logs) && local.logs.length > 0) {
+                    safeLogs = local.logs;
+                }
+
+                mergedMap.set(id, {
+                    ...local,
                     ...inc,
-                    status: safeStatus,
+                    engineer: finalEngineer,
+                    status: finalStatus,
                     reportTime: safeReportDate,
                     completedDate: safeCompletedDate,
                     quoteState: inc.quoteState || (local ? local.quoteState : '') || '',
                     isArchived: inc.isArchived || (local ? local.isArchived : false) || false,
-                    attachments: safeAttachments
-                };
+                    attachments: safeAttachments,
+                    logs: safeLogs
+                });
             });
+
+            localMap.forEach((local, id) => {
+                if (!mergedMap.has(id)) {
+                    mergedMap.set(id, local);
+                }
+            });
+
+            return Array.from(mergedMap.values());
         };
 
         const fetchData = async (isBackground) => {
             const isSilent = isBackground === true;
+            if (isSaving.value || isSyncing) return;
+
             if (!apiUrl.value) {
                 const localData = localStorage.getItem("local_repair_tickets_v2");
                 const localEngs = localStorage.getItem("local_repair_engineers_v2");
-                if (localData) { try { tickets.value = JSON.parse(localData); } catch(e){} }
+                if (localData) { try { tickets.value = deduplicateTickets(JSON.parse(localData)); } catch(e){} }
                 if (localEngs) { try { engineers.value = JSON.parse(localEngs); } catch(e){} }
                 isApiConnected.value = false;
                 return;
@@ -261,7 +317,7 @@ const App = {
                     throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone！");
                 }
 
-                if (data.tickets) tickets.value = mergeTickets(data.tickets);
+                if (data.tickets) tickets.value = deduplicateTickets(mergeTickets(data.tickets));
                 if (data.engineers && Array.isArray(data.engineers)) engineers.value = data.engineers;
                 isApiConnected.value = true;
             } catch (error) {
@@ -278,21 +334,22 @@ const App = {
             }
         };
 
-        const saveData = async () => {
+        const saveData = async (isManualSync = false) => {
             localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
             localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
             if (!apiUrl.value) return;
 
             isSaving.value = true;
-            isLoading.value = true;
+            if (isManualSync) isLoading.value = true;
             try {
                 const payloadTickets = tickets.value.map(t => ({
                     ...t,
                     completedDate: t.completedDate || '',
                     quoteState: t.quoteState || '',
                     isArchived: t.isArchived || false,
-                    attachments: t.attachments || []
+                    attachments: t.attachments || [],
+                    logs: t.logs || []
                 }));
 
                 const res = await fetch(apiUrl.value, {
@@ -301,17 +358,11 @@ const App = {
                     body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
                 });
                 const text = await res.text();
-                try { JSON.parse(text); } catch (e) {
-                    throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone。");
-                }
+                try { JSON.parse(text); } catch (e) {}
                 isApiConnected.value = true;
             } catch (error) {
-                console.error("儲存失敗：", error);
+                console.warn("雲端同步異常：", error);
                 isApiConnected.value = false;
-                confirmDialog.title = "資料儲存失敗";
-                confirmDialog.message = error.message || "請檢查網路連線與 Apps Script 部署權限。";
-                confirmDialog.isWarning = true;
-                confirmDialog.isOpen = true;
             } finally {
                 isSaving.value = false;
                 isLoading.value = false;
@@ -335,10 +386,28 @@ const App = {
             fetchData(false);
         };
 
+        // ⚡ 自動保溫心跳 (Keep-Alive Ping)：每 3 分鐘輕量 ping 一次，避免 GAS 進入冷啟動休眠
+        let keepAliveTimer = null;
+        const startKeepAlive = () => {
+            if (keepAliveTimer) clearInterval(keepAliveTimer);
+            keepAliveTimer = setInterval(() => {
+                if (apiUrl.value && !isSyncing && !isSaving.value && !isLoading.value) {
+                    fetch(`${apiUrl.value}?action=ping&t=${Date.now()}`, {
+                        method: 'GET',
+                        mode: 'cors',
+                        credentials: 'omit'
+                    }).then(() => {
+                        isApiConnected.value = true;
+                    }).catch(() => {});
+                }
+            }, 180000); // 3 分鐘
+        };
+
         onMounted(() => {
             fetchData(false);
+            startKeepAlive();
             setInterval(() => {
-                if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen) {
+                if (!selectedTicket.value && !showEngModal.value && !showSearchModal.value && !confirmDialog.isOpen && !isSaving.value && !isSyncing) {
                     fetchData(true);
                 }
             }, 60000);

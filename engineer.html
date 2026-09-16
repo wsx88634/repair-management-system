@@ -1053,11 +1053,45 @@ window.onerror = function(msg, url, line, col, error) {
                     return str.split('T')[0].split(' ')[0];
                 };
 
+                const deduplicateTickets = (list) => {
+                    if (!Array.isArray(list)) return [];
+                    const map = new Map();
+                    list.forEach(t => {
+                        if (t && t.id) {
+                            const sid = String(t.id).trim();
+                            if (!map.has(sid)) {
+                                map.set(sid, t);
+                            }
+                        }
+                    });
+                    return Array.from(map.values());
+                };
+
                 const mergeTickets = (incoming) => {
-                    const localMap = new Map(tickets.value.map(t => [t.id, t]));
-                    return incoming.map(inc => {
-                        const local = localMap.get(inc.id);
-                        
+                    if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+
+                    // 1. 本地現有單據 Map
+                    const localMap = new Map();
+                    (tickets.value || []).forEach(t => {
+                        if (t && t.id) localMap.set(String(t.id).trim(), t);
+                    });
+
+                    // 2. 雲端傳入單據去重 Map (防試算表有重複單號列)
+                    const incomingMap = new Map();
+                    incoming.forEach(inc => {
+                        if (inc && inc.id) {
+                            const sid = String(inc.id).trim();
+                            if (!incomingMap.has(sid)) {
+                                incomingMap.set(sid, inc);
+                            }
+                        }
+                    });
+
+                    const mergedMap = new Map();
+
+                    // 3. 合併雲端與本地單據
+                    incomingMap.forEach((inc, id) => {
+                        const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || "");
                         let safeCompletedDate = formatLocalDate(inc.completedDate || "");
 
@@ -1076,7 +1110,6 @@ window.onerror = function(msg, url, line, col, error) {
                         attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('data:application/pdf') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
                         let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
-
                         let safeStatus = normalizeStatus(inc.status || '未執行');
 
                         let safeLogs = [];
@@ -1087,7 +1120,7 @@ window.onerror = function(msg, url, line, col, error) {
                         }
 
                         if (local && (isSaving.value || selectedTicket.value?.id === inc.id)) {
-                            return {
+                            mergedMap.set(id, {
                                 ...inc,
                                 reportTime: safeReportDate,
                                 completedDate: safeCompletedDate,
@@ -1100,21 +1133,30 @@ window.onerror = function(msg, url, line, col, error) {
                                 attachments: local.attachments || attachmentsList,
                                 logs: safeLogs,
                                 isArchived: inc.isArchived || false
-                            };
+                            });
+                        } else {
+                            mergedMap.set(id, {
+                                ...inc,
+                                reportTime: safeReportDate,
+                                completedDate: safeCompletedDate,
+                                engineer: inc.engineer || '未指派',
+                                status: safeStatus,
+                                quoteState: inc.quoteState || '',
+                                attachments: attachmentsList,
+                                logs: safeLogs,
+                                isArchived: inc.isArchived || false
+                            });
                         }
-
-                        return {
-                            ...inc,
-                            reportTime: safeReportDate,
-                            completedDate: safeCompletedDate,
-                            engineer: inc.engineer || '未指派',
-                            status: safeStatus,
-                            quoteState: inc.quoteState || '',
-                            attachments: attachmentsList,
-                            logs: safeLogs,
-                            isArchived: inc.isArchived || false
-                        };
                     });
+
+                    // 4. 合併本機尚未推送至雲端的新單據
+                    localMap.forEach((local, id) => {
+                        if (!mergedMap.has(id)) {
+                            mergedMap.set(id, local);
+                        }
+                    });
+
+                    return Array.from(mergedMap.values());
                 };
 
                 const getStatusColor = (ticket) => {
@@ -1158,6 +1200,7 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const fetchData = async (isBackground = false) => {
+                    if (isSaving.value || isSyncing) return; // 正在進行本機寫入時，跳過背景讀取避免暫態舊資料覆蓋
                     if (!isBackground) isLoading.value = true;
                     try {
                         const response = await fetchWithRetry(`${API_URL}?action=getData&t=${new Date().getTime()}`, {
@@ -1174,7 +1217,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 localStorage.setItem("local_repair_engineers_v2", JSON.stringify(data.engineers));
                             }
                             if (data.tickets && Array.isArray(data.tickets) && data.tickets.length > 0) {
-                                tickets.value = mergeTickets(data.tickets);
+                                tickets.value = deduplicateTickets(mergeTickets(data.tickets));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                             isApiConnected.value = true;
@@ -1182,9 +1225,6 @@ window.onerror = function(msg, url, line, col, error) {
                     } catch (error) {
                         console.warn("API 讀取未完成，目前使用本地預設/快取資料:", error);
                         isApiConnected.value = false;
-                    } finally {
-                        if (!isBackground) isLoading.value = false;
-                    }
                 };
 
                 let syncTimeout = null;
@@ -1738,11 +1778,29 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                 };
 
+                // ⚡ 自動保溫心跳 (Keep-Alive Ping)：每 3 分鐘輕量 ping 一次，避免 GAS 進入冷啟動休眠
+                let keepAliveTimer = null;
+                const startKeepAlive = () => {
+                    if (keepAliveTimer) clearInterval(keepAliveTimer);
+                    keepAliveTimer = setInterval(() => {
+                        if (API_URL && !isSyncing && !isSaving.value && !isLoading.value) {
+                            fetch(`${API_URL}?action=ping&t=${Date.now()}`, {
+                                method: 'GET',
+                                mode: 'cors',
+                                credentials: 'omit'
+                            }).then(() => {
+                                isApiConnected.value = true;
+                            }).catch(() => {});
+                        }
+                    }, 180000); // 3 分鐘
+                };
+
                 onMounted(() => {
                     window.addEventListener('keydown', handleKeyDown);
                     fetchData();
+                    startKeepAlive();
                     setInterval(() => {
-                        if (!viewingImage.value && !selectedTicket.value) fetchData(true);
+                        if (!viewingImage.value && !selectedTicket.value && !isSaving.value && !isSyncing) fetchData(true);
                     }, 30000); // 每 30 秒背景自動輪詢同步
                 });
 
