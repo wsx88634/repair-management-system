@@ -83,9 +83,13 @@ window.onerror = function(msg, url, line, col, error) {
                             <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
                         </span>
                         <!-- API 狀態標籤 -->
-                        <span :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
-                            <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : 'bg-amber-500'" class="w-2 h-2 rounded-full shadow-sm"></span>
-                            {{ isApiConnected ? 'GAS API 已連線' : '本地體驗模式' }}
+                        <span v-if="!apiUrl" class="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-500 shadow-sm"></span>
+                            本地體驗模式
+                        </span>
+                        <span v-else :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200')" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                            <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : (isLoading ? 'bg-blue-500 animate-pulse' : 'bg-amber-500')" class="w-2 h-2 rounded-full shadow-sm"></span>
+                            {{ isApiConnected ? 'GAS API 已連線' : (isLoading ? '雲端連線中...' : '本地快取模式') }}
                         </span>
                     </h1>
                     
@@ -2243,9 +2247,10 @@ window.onerror = function(msg, url, line, col, error) {
                         if (selectedTicket.value && String(selectedTicket.value.id).trim() === sid) {
                             closeTicketModal();
                         }
-                        // 3. 立即清除可能防抖中的定時器，發動即時強制同步
+                        // 3. 立即更新本機儲存，並以背景靜默方式即時發送雲端（不阻塞介面顯示旋轉中）
+                        localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                         if (syncTimeout) clearTimeout(syncTimeout);
-                        await saveData(true);
+                        performCloudSync(false);
                     };
                 };
 

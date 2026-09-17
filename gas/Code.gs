@@ -84,15 +84,13 @@ function getDbSheets() {
  * GET 請求處理器
  */
 function doGet(e) {
-  const lock = LockService.getScriptLock();
+  const action = e && e.parameter && e.parameter.action ? e.parameter.action : "getData";
+
+  if (action === "ping") {
+    return respondJSON({ status: "success", message: "叫修系統 API 運作正常 (Execute as Me 免混淆)" });
+  }
+
   try {
-    lock.waitLock(10000);
-    const action = e && e.parameter && e.parameter.action ? e.parameter.action : "getData";
-
-    if (action === "ping") {
-      return respondJSON({ status: "success", message: "叫修系統 API 運作正常 (Execute as Me 免混淆)" });
-    }
-
     const { ticketSheet, sysSheet } = getDbSheets();
 
     // 讀取工程師名單 (若系統檔為舊假名單，自動矯正為 9 位團隊成員)
@@ -170,8 +168,6 @@ function doGet(e) {
     });
   } catch (err) {
     return respondJSON({ status: "error", message: err.toString() });
-  } finally {
-    lock.releaseLock();
   }
 }
 

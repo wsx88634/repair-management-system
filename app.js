@@ -726,7 +726,8 @@ const App = {
                 if (selectedTicket.value && String(selectedTicket.value.id).trim() === sid) {
                     closeTicketModal();
                 }
-                await saveData(true);
+                localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                saveData(false);
             };
         };
 
