@@ -832,9 +832,21 @@ window.onerror = function(msg, url, line, col, error) {
                 const localEngs = localStorage.getItem("local_repair_engineers_v2");
                 const initialEngs = localEngs ? JSON.parse(localEngs) : defaultEngineers;
 
+                const getDeletedTicketIds = () => {
+                    try {
+                        const raw = localStorage.getItem("local_repair_deleted_ids_v1");
+                        return raw ? new Set(JSON.parse(raw)) : new Set();
+                    } catch (e) {
+                        return new Set();
+                    }
+                };
+
                 const localTickets = localStorage.getItem("local_repair_tickets_v2");
+                const deletedIds = getDeletedTicketIds();
                 const rawTickets = localTickets ? JSON.parse(localTickets) : defaultTickets;
-                const initialTickets = rawTickets.map(t => ({ ...t, status: normalizeStatus(t.status) }));
+                const initialTickets = rawTickets
+                    .filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))
+                    .map(t => ({ ...t, status: normalizeStatus(t.status) }));
 
                 const engineers = ref([...initialEngs]);
                 const isLoading = ref(false);
@@ -1068,20 +1080,26 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const mergeTickets = (incoming) => {
-                    if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+                    const deletedIds = getDeletedTicketIds();
+                    if (!incoming || !Array.isArray(incoming)) return deduplicateTickets((tickets.value || []).filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
 
-                    // 1. 本地現有單據 Map
+                    // 1. 本地現有單據 Map (排除墓碑)
                     const localMap = new Map();
                     (tickets.value || []).forEach(t => {
-                        if (t && t.id) localMap.set(String(t.id).trim(), t);
+                        if (t && t.id) {
+                            const sid = String(t.id).trim();
+                            if (!deletedIds.has(sid)) {
+                                localMap.set(sid, t);
+                            }
+                        }
                     });
 
-                    // 2. 雲端傳入單據去重 Map (防試算表有重複單號列)
+                    // 2. 雲端傳入單據去重 Map (防試算表有重複單號列與排除墓碑)
                     const incomingMap = new Map();
                     incoming.forEach(inc => {
                         if (inc && inc.id) {
                             const sid = String(inc.id).trim();
-                            if (!incomingMap.has(sid)) {
+                            if (!deletedIds.has(sid) && !incomingMap.has(sid)) {
                                 incomingMap.set(sid, inc);
                             }
                         }
@@ -1212,12 +1230,14 @@ window.onerror = function(msg, url, line, col, error) {
                         const data = await response.json();
                         
                         if (data && (data.tickets || data.engineers || data.status === 'success')) {
+                            const deletedIds = getDeletedTicketIds();
                             if (data.engineers && Array.isArray(data.engineers) && data.engineers.length > 0) {
                                 engineers.value = data.engineers;
                                 localStorage.setItem("local_repair_engineers_v2", JSON.stringify(data.engineers));
                             }
                             if (data.tickets && Array.isArray(data.tickets) && data.tickets.length > 0) {
-                                tickets.value = deduplicateTickets(mergeTickets(data.tickets));
+                                const cleanTickets = data.tickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
+                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                             isApiConnected.value = true;
@@ -1232,24 +1252,31 @@ window.onerror = function(msg, url, line, col, error) {
 
                 let syncTimeout = null;
                 let isSyncing = false;
+                let hasPendingSync = false;
 
                 const performCloudSync = async (isManualSync = false) => {
-                    if (isSyncing) return;
+                    if (isSyncing) {
+                        hasPendingSync = true;
+                        return;
+                    }
                     isSyncing = true;
                     isSaving.value = true;
                     if (isManualSync) isLoading.value = true;
 
-                    const cleanTickets = tickets.value.map(t => {
-                        const copy = { ...t };
-                        if (copy.attachments) {
-                            // 過濾掉可能因為斷線而在本地殘留的過大 base64 檔案
-                            const safeAttachments = copy.attachments.map(a => 
-                                (typeof a === 'string' && a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
-                            );
-                            copy.attachments = JSON.stringify(safeAttachments);
-                        }
-                        return copy;
-                    });
+                    const deletedIds = getDeletedTicketIds();
+                    const cleanTickets = tickets.value
+                        .filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))
+                        .map(t => {
+                            const copy = { ...t };
+                            if (copy.attachments) {
+                                // 過濾掉可能因為斷線而在本地殘留的過大 base64 檔案
+                                const safeAttachments = copy.attachments.map(a => 
+                                    (typeof a === 'string' && a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
+                                );
+                                copy.attachments = JSON.stringify(safeAttachments);
+                            }
+                            return copy;
+                        });
 
                     try {
                         const response = await fetchWithRetry(API_URL, {
@@ -1283,6 +1310,12 @@ window.onerror = function(msg, url, line, col, error) {
                         isSaving.value = false;
                         isLoading.value = false;
                         isSyncing = false;
+                        if (hasPendingSync) {
+                            hasPendingSync = false;
+                            setTimeout(() => {
+                                performCloudSync(false);
+                            }, 100);
+                        }
                     }
                 };
 

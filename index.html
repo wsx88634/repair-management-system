@@ -1228,15 +1228,36 @@ window.onerror = function(msg, url, line, col, error) {
                 const initialEngs = localEngs ? JSON.parse(localEngs) : defaultEngineers;
                 const engineers = ref([...initialEngs]);
 
+                const getDeletedTicketIds = () => {
+                    try {
+                        const raw = localStorage.getItem("local_repair_deleted_ids_v1");
+                        return raw ? new Set(JSON.parse(raw)) : new Set();
+                    } catch (e) {
+                        return new Set();
+                    }
+                };
+                const recordDeletedTicketId = (id) => {
+                    if (!id) return;
+                    try {
+                        const ids = getDeletedTicketIds();
+                        ids.add(String(id).trim());
+                        const arr = Array.from(ids).slice(-500);
+                        localStorage.setItem("local_repair_deleted_ids_v1", JSON.stringify(arr));
+                    } catch (e) {}
+                };
+
                 const initialLocalData = (() => {
+                    const deletedIds = getDeletedTicketIds();
                     const raw = localStorage.getItem("local_repair_tickets_v2");
                     if (raw) {
                         try {
                             const parsed = JSON.parse(raw);
-                            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                return parsed.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
+                            }
                         } catch(e) {}
                     }
-                    return defaultTickets;
+                    return defaultTickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
                 })();
                 const tickets = ref(initialLocalData);
                 const isLoading = ref(false);
@@ -1565,20 +1586,28 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const mergeTickets = (incoming) => {
-                    if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+                    const deletedIds = getDeletedTicketIds();
+                    if (!incoming || !Array.isArray(incoming)) {
+                        return deduplicateTickets((tickets.value || []).filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
+                    }
                     
-                    // 1. 本地現有單據 Map
+                    // 1. 本地現有單據 Map (排除墓碑單據)
                     const localMap = new Map();
                     (tickets.value || []).forEach(t => {
-                        if (t && t.id) localMap.set(String(t.id).trim(), t);
+                        if (t && t.id) {
+                            const sid = String(t.id).trim();
+                            if (!deletedIds.has(sid)) {
+                                localMap.set(sid, t);
+                            }
+                        }
                     });
 
-                    // 2. 雲端傳入單據去重 Map (防試算表有重複單號列)
+                    // 2. 雲端傳入單據去重 Map (排除墓碑中的已刪除單據與防試算表有重複單號列)
                     const incomingMap = new Map();
                     incoming.forEach(inc => {
                         if (inc && inc.id) {
                             const sid = String(inc.id).trim();
-                            if (!incomingMap.has(sid)) {
+                            if (!deletedIds.has(sid) && !incomingMap.has(sid)) {
                                 incomingMap.set(sid, inc);
                             }
                         }
@@ -1671,11 +1700,19 @@ window.onerror = function(msg, url, line, col, error) {
                     const isSilent = isBackground === true;
                     if (isSaving.value || isSyncing) return; // 正在進行本機寫入時，跳過背景讀取避免暫態舊資料覆蓋
 
+                    const deletedIds = getDeletedTicketIds();
                     if (!apiUrl.value) {
                         const localData = localStorage.getItem("local_repair_tickets_v2");
                         const localEngs = localStorage.getItem("local_repair_engineers_v2");
-                        if (localData) { try { tickets.value = deduplicateTickets(JSON.parse(localData)); } catch(e){} }
-                        else if (defaultTickets.length > 0) { tickets.value = deduplicateTickets([...defaultTickets]); }
+                        if (localData) { 
+                            try { 
+                                const parsed = JSON.parse(localData);
+                                tickets.value = deduplicateTickets(parsed.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))); 
+                            } catch(e){} 
+                        }
+                        else if (defaultTickets.length > 0) { 
+                            tickets.value = deduplicateTickets(defaultTickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))); 
+                        }
 
                         if (localEngs) { try { engineers.value = JSON.parse(localEngs); } catch(e){} }
                         else if (defaultEngineers.length > 0) { engineers.value = [...defaultEngineers]; }
@@ -1700,13 +1737,14 @@ window.onerror = function(msg, url, line, col, error) {
                         }
 
                         if (data.tickets && Array.isArray(data.tickets)) {
-                            if (data.tickets.length === 0 && defaultTickets.length > 0) {
+                            const cleanTickets = data.tickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
+                            if (cleanTickets.length === 0 && defaultTickets.length > 0 && tickets.value.length === 0) {
                                 console.log("GAS 試算表目前為空，自動一鍵推送全量 434 筆歷史叫修單據...");
-                                tickets.value = deduplicateTickets([...defaultTickets]);
+                                tickets.value = deduplicateTickets(defaultTickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
                                 engineers.value = [...defaultEngineers];
                                 await saveData();
                             } else {
-                                tickets.value = deduplicateTickets(mergeTickets(data.tickets));
+                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                         }
@@ -1733,28 +1771,36 @@ window.onerror = function(msg, url, line, col, error) {
 
                 let syncTimeout = null;
                 let isSyncing = false;
+                let hasPendingSync = false;
                 
                 const performCloudSync = async (isManualSync = false) => {
-                    if (!apiUrl.value || isSyncing) return;
+                    if (!apiUrl.value) return;
+                    if (isSyncing) {
+                        hasPendingSync = true;
+                        return;
+                    }
                     isSyncing = true;
                     isSaving.value = true;
                     if (isManualSync) isLoading.value = true;
                     
                     try {
-                        const payloadTickets = tickets.value.map(t => {
-                            // 清理可能因斷線而暫存於本地的過大 base64 (超過 1MB 視為異常)，避免癱瘓雲端同步
-                            const safeAttachments = (t.attachments || []).map(a => 
-                                (a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
-                            );
-                            return {
-                                ...t,
-                                completedDate: t.completedDate || '',
-                                quoteState: t.quoteState || '',
-                                isArchived: t.isArchived || false,
-                                attachments: safeAttachments,
-                                logs: t.logs || []
-                            };
-                        });
+                        const deletedIds = getDeletedTicketIds();
+                        const payloadTickets = tickets.value
+                            .filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))
+                            .map(t => {
+                                // 清理可能因斷線而暫存於本地的過大 base64 (超過 1MB 視為異常)，避免癱瘓雲端同步
+                                const safeAttachments = (t.attachments || []).map(a => 
+                                    (a.startsWith('data:') && a.length > 1000000) ? '[本地過大未上傳媒體]' : a
+                                );
+                                return {
+                                    ...t,
+                                    completedDate: t.completedDate || '',
+                                    quoteState: t.quoteState || '',
+                                    isArchived: t.isArchived || false,
+                                    attachments: safeAttachments,
+                                    logs: t.logs || []
+                                };
+                            });
 
                         try {
                             const res = await fetchWithRetry(apiUrl.value, {
@@ -1814,6 +1860,12 @@ window.onerror = function(msg, url, line, col, error) {
                         isSaving.value = false;
                         isLoading.value = false;
                         isSyncing = false;
+                        if (hasPendingSync) {
+                            hasPendingSync = false;
+                            setTimeout(() => {
+                                performCloudSync(false);
+                            }, 100);
+                        }
                     }
                 };
 
@@ -2060,6 +2112,12 @@ window.onerror = function(msg, url, line, col, error) {
                         return;
                     }
                     const newId = `T-${Math.floor(Math.random() * 9000 + 1000)}`;
+                    // 若剛好隨機到被登記過刪除的單號，自墓碑名單中清除
+                    const deletedIds = getDeletedTicketIds();
+                    if (deletedIds.has(newId)) {
+                        deletedIds.delete(newId);
+                        localStorage.setItem("local_repair_deleted_ids_v1", JSON.stringify(Array.from(deletedIds)));
+                    }
                     const newTicket = {
                         ...formData,
                         id: newId,
@@ -2179,9 +2237,15 @@ window.onerror = function(msg, url, line, col, error) {
                     confirmDialog.message = `確定要永久刪除這張單據嗎？此操作不可復原！`;
                     confirmDialog.isWarning = true; confirmDialog.isOpen = true;
                     confirmDialog.onConfirm = async () => {
-                        tickets.value = tickets.value.filter(t => t.id !== id);
-                        if (selectedTicket.value?.id === id) closeTicketModal();
-                        await saveData();
+                        const sid = String(id).trim();
+                        recordDeletedTicketId(sid); // 1. 登記墓碑防復活
+                        tickets.value = tickets.value.filter(t => String(t.id).trim() !== sid); // 2. 本地立即移除
+                        if (selectedTicket.value && String(selectedTicket.value.id).trim() === sid) {
+                            closeTicketModal();
+                        }
+                        // 3. 立即清除可能防抖中的定時器，發動即時強制同步
+                        if (syncTimeout) clearTimeout(syncTimeout);
+                        await saveData(true);
                     };
                 };
 

@@ -62,9 +62,28 @@ const App = {
             }
         ];
 
+        const getDeletedTicketIds = () => {
+            try {
+                const raw = localStorage.getItem("local_repair_deleted_ids_v1");
+                return raw ? new Set(JSON.parse(raw)) : new Set();
+            } catch (e) {
+                return new Set();
+            }
+        };
+        const recordDeletedTicketId = (id) => {
+            if (!id) return;
+            try {
+                const ids = getDeletedTicketIds();
+                ids.add(String(id).trim());
+                const arr = Array.from(ids).slice(-500);
+                localStorage.setItem("local_repair_deleted_ids_v1", JSON.stringify(arr));
+            } catch (e) {}
+        };
+
         // 全域狀態
         const engineers = ref([...defaultEngineers]);
-        const tickets = ref([...defaultTickets]);
+        const deletedIds = getDeletedTicketIds();
+        const tickets = ref([...defaultTickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))]);
         const isLoading = ref(false);
         const isSaving = ref(false);
 
@@ -217,18 +236,24 @@ const App = {
         };
 
         const mergeTickets = (incoming) => {
-            if (!incoming || !Array.isArray(incoming)) return deduplicateTickets(tickets.value);
+            const deletedIds = getDeletedTicketIds();
+            if (!incoming || !Array.isArray(incoming)) return deduplicateTickets((tickets.value || []).filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
 
             const localMap = new Map();
             (tickets.value || []).forEach(t => {
-                if (t && t.id) localMap.set(String(t.id).trim(), t);
+                if (t && t.id) {
+                    const sid = String(t.id).trim();
+                    if (!deletedIds.has(sid)) {
+                        localMap.set(sid, t);
+                    }
+                }
             });
 
             const incomingMap = new Map();
             incoming.forEach(inc => {
                 if (inc && inc.id) {
                     const sid = String(inc.id).trim();
-                    if (!incomingMap.has(sid)) {
+                    if (!deletedIds.has(sid) && !incomingMap.has(sid)) {
                         incomingMap.set(sid, inc);
                     }
                 }
@@ -317,7 +342,11 @@ const App = {
                     throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone！");
                 }
 
-                if (data.tickets) tickets.value = deduplicateTickets(mergeTickets(data.tickets));
+                const deletedIds = getDeletedTicketIds();
+                if (data.tickets) {
+                    const cleanTickets = data.tickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
+                    tickets.value = deduplicateTickets(mergeTickets(cleanTickets));
+                }
                 if (data.engineers && Array.isArray(data.engineers)) engineers.value = data.engineers;
                 isApiConnected.value = true;
             } catch (error) {
@@ -334,23 +363,34 @@ const App = {
             }
         };
 
+        let isSyncing = false;
+        let hasPendingSync = false;
+
         const saveData = async (isManualSync = false) => {
             localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
             localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
 
             if (!apiUrl.value) return;
 
+            if (isSyncing) {
+                hasPendingSync = true;
+                return;
+            }
+            isSyncing = true;
             isSaving.value = true;
             if (isManualSync) isLoading.value = true;
             try {
-                const payloadTickets = tickets.value.map(t => ({
-                    ...t,
-                    completedDate: t.completedDate || '',
-                    quoteState: t.quoteState || '',
-                    isArchived: t.isArchived || false,
-                    attachments: t.attachments || [],
-                    logs: t.logs || []
-                }));
+                const deletedIds = getDeletedTicketIds();
+                const payloadTickets = tickets.value
+                    .filter(t => t && t.id && !deletedIds.has(String(t.id).trim()))
+                    .map(t => ({
+                        ...t,
+                        completedDate: t.completedDate || '',
+                        quoteState: t.quoteState || '',
+                        isArchived: t.isArchived || false,
+                        attachments: t.attachments || [],
+                        logs: t.logs || []
+                    }));
 
                 const res = await fetch(apiUrl.value, {
                     method: 'POST',
@@ -366,6 +406,13 @@ const App = {
             } finally {
                 isSaving.value = false;
                 isLoading.value = false;
+                isSyncing = false;
+                if (hasPendingSync) {
+                    hasPendingSync = false;
+                    setTimeout(() => {
+                        saveData(false);
+                    }, 100);
+                }
             }
         };
 
@@ -562,6 +609,11 @@ const App = {
                 return;
             }
             const newId = `T-${Math.floor(Math.random() * 9000 + 1000)}`;
+            const deletedIds = getDeletedTicketIds();
+            if (deletedIds.has(newId)) {
+                deletedIds.delete(newId);
+                localStorage.setItem("local_repair_deleted_ids_v1", JSON.stringify(Array.from(deletedIds)));
+            }
             const newTicket = {
                 ...formData,
                 id: newId,
@@ -668,9 +720,13 @@ const App = {
             confirmDialog.message = `確定要永久刪除這張單據嗎？此操作不可復原！`;
             confirmDialog.isWarning = true; confirmDialog.isOpen = true;
             confirmDialog.onConfirm = async () => {
-                tickets.value = tickets.value.filter(t => t.id !== id);
-                if (selectedTicket.value?.id === id) closeTicketModal();
-                await saveData();
+                const sid = String(id).trim();
+                recordDeletedTicketId(sid);
+                tickets.value = tickets.value.filter(t => String(t.id).trim() !== sid);
+                if (selectedTicket.value && String(selectedTicket.value.id).trim() === sid) {
+                    closeTicketModal();
+                }
+                await saveData(true);
             };
         };
 
