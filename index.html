@@ -73,51 +73,53 @@ window.onerror = function(msg, url, line, col, error) {
             
             <!-- 1. 頂部區塊 -->
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
-                        <div class="bg-blue-100 p-2 rounded-lg">
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
+                    <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                        <div class="bg-blue-100 p-2.5 rounded-xl shrink-0 flex items-center justify-center">
                             <l-icon name="wrench" class="text-blue-600 w-6 h-6"></l-icon>
                         </div>
-                        叫修輔助管理工具
-                        <span v-if="isLoading" class="text-xs font-medium text-blue-500 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1.5 animate-pulse ml-2 border border-blue-100">
+                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 whitespace-nowrap">
+                            叫修輔助管理面板
+                        </h1>
+                        <span v-if="isLoading" class="text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse border border-blue-200 whitespace-nowrap">
                             <l-icon name="refresh-cw" class="w-3.5 h-3.5 animate-spin"></l-icon> 同步中
                         </span>
                         <!-- API 狀態標籤 -->
-                        <span v-if="!apiUrl" class="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                        <span v-if="!apiUrl" class="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 whitespace-nowrap">
                             <span class="w-2 h-2 rounded-full bg-amber-500 shadow-sm"></span>
                             本地體驗模式
                         </span>
-                        <span v-else :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200')" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 ml-2">
+                        <span v-else :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200')" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 whitespace-nowrap">
                             <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : (isLoading ? 'bg-blue-500 animate-pulse' : 'bg-amber-500')" class="w-2 h-2 rounded-full shadow-sm"></span>
                             {{ isApiConnected ? 'GAS API 已連線' : (isLoading ? '雲端連線中...' : '本地快取模式') }}
                         </span>
-                    </h1>
+                    </div>
                     
-                    <!-- 按鈕群 -->
-                    <div class="flex flex-wrap gap-3">
-                        <button @click="activeView = activeView === 'kanban' ? 'calendar' : 'kanban'" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95" :class="activeView === 'calendar' ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30 ring-2 ring-purple-400' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'">
+                    <!-- 按鈕群 (等距整齊對齊) -->
+                    <div class="flex flex-wrap items-center gap-2 xl:gap-2.5 justify-start xl:justify-end">
+                        <button @click="activeView = activeView === 'kanban' ? 'calendar' : 'kanban'" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap" :class="activeView === 'calendar' ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30 ring-2 ring-purple-400' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'">
                             <l-icon :name="activeView === 'calendar' ? 'kanban' : 'calendar'" class="w-4 h-4"></l-icon>
-                            {{ activeView === 'calendar' ? '📋 切換看板視角' : '📅 切換行事曆視角' }}
+                            {{ activeView === 'calendar' ? '切換看板視角' : '切換行事曆視角' }}
                         </button>
-                        <button @click="openSettingsModal" class="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                        <button @click="openSettingsModal" class="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm whitespace-nowrap">
                             <l-icon name="sliders" class="w-4 h-4"></l-icon> 後端 API 設定
                         </button>
-                        <button @click="confirmBatchArchive" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-amber-500/20">
+                        <button @click="confirmBatchArchive" class="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-amber-500/20 whitespace-nowrap">
                             <l-icon name="archive" class="w-4 h-4"></l-icon> 一鍵封存結案
                         </button>
-                        <button @click="manualRefresh" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
+                        <button @click="manualRefresh" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm whitespace-nowrap">
                             <l-icon name="refresh-cw" class="w-4 h-4"></l-icon> 重新整理
                         </button>
-                        <button @click="openSearchModal" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-sky-600/20">
+                        <button @click="openSearchModal" class="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-sky-600/20 whitespace-nowrap">
                             <l-icon name="search" class="w-4 h-4"></l-icon> 歷史複查
                         </button>
-                        <button @click="showEngModal = true" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-slate-800/20">
+                        <button @click="showEngModal = true" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-slate-800/20 whitespace-nowrap">
                             <l-icon name="users" class="w-4 h-4"></l-icon> 團隊管理
                         </button>
-                        <button @click="openExportModal" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20">
+                        <button @click="openExportModal" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20 whitespace-nowrap">
                             <l-icon name="download" class="w-4 h-4"></l-icon> 匯出報表
                         </button>
-                        <button @click="captureBoard" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm shadow-indigo-600/20">
+                        <button @click="captureBoard" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-indigo-600/20 whitespace-nowrap">
                             <l-icon name="camera" class="w-4 h-4"></l-icon> 擷取看板
                         </button>
                     </div>
