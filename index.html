@@ -89,9 +89,13 @@ window.onerror = function(msg, url, line, col, error) {
                             <span class="w-2 h-2 rounded-full bg-amber-500 shadow-sm"></span>
                             本地體驗模式
                         </span>
-                        <span v-else :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200')" class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 whitespace-nowrap">
+                        <span v-else 
+                              :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 cursor-pointer')" 
+                              @click="!isApiConnected && !isLoading ? manualRefresh() : null" 
+                              :title="isApiConnected ? '雲端連線正常 (Google Apps Script)' : (isLoading ? '正在嘗試連線雲端...' : '點擊立即重試連線雲端')" 
+                              class="text-xs font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1.5 whitespace-nowrap select-none transition-colors">
                             <span :class="isApiConnected ? 'bg-emerald-500 shadow-emerald-500' : (isLoading ? 'bg-blue-500 animate-pulse' : 'bg-amber-500')" class="w-2 h-2 rounded-full shadow-sm"></span>
-                            {{ isApiConnected ? 'GAS API 已連線' : (isLoading ? '雲端連線中...' : '本地快取模式') }}
+                            {{ isApiConnected ? 'GAS API 已連線' : (isLoading ? '雲端連線中...' : '本地快取模式 (點擊重試)') }}
                         </span>
                     </div>
                     
@@ -1120,7 +1124,9 @@ window.onerror = function(msg, url, line, col, error) {
                 </div>
 
                 <div v-if="isSettingsAuthenticated" class="bg-slate-50 px-6 py-4 flex flex-wrap justify-between items-center gap-3 border-t border-slate-200">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button @click="resetToDefaultApiUrl" class="text-blue-600 hover:text-blue-800 text-xs font-bold">恢復官方預設 API</button>
+                        <span class="text-slate-300">|</span>
                         <button @click="clearApiSettings" class="text-slate-500 hover:text-red-600 text-xs font-bold">清空網址 (切回 Mock 模式)</button>
                         <span class="text-slate-300">|</span>
                         <button @click="forceSyncToCloud" class="text-emerald-700 hover:text-emerald-800 text-xs font-bold flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors">
@@ -1678,23 +1684,28 @@ window.onerror = function(msg, url, line, col, error) {
                     return Array.from(mergedMap.values());
                 };
 
-                const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
+                const fetchWithRetry = async (url, options = {}, maxRetries = 2, delayMs = 600, timeoutMs = 12000) => {
                     let lastErr = null;
                     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), timeoutMs);
                         try {
-                            const res = await fetch(url, options);
+                            const reqOptions = {
+                                ...options,
+                                signal: controller.signal
+                            };
+                            const res = await fetch(url, reqOptions);
+                            clearTimeout(timer);
                             if (res.ok) {
-                                const clone = res.clone();
-                                const text = await clone.text();
-                                if (text.trim().startsWith('<')) {
-                                    throw new Error("Received HTML instead of JSON from GAS");
-                                }
                                 return res;
                             }
                             if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
                             else return res;
                         } catch (err) {
-                            lastErr = err;
+                            clearTimeout(timer);
+                            lastErr = (err && err.name === 'AbortError') 
+                                ? new Error(`雲端連線逾時 (${Math.round(timeoutMs / 1000)}秒無回應)，已自動無縫降級為本地快取`) 
+                                : err;
                             if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
                         }
                     }
@@ -1734,11 +1745,16 @@ window.onerror = function(msg, url, line, col, error) {
                             redirect: 'follow',
                             mode: 'cors',
                             credentials: 'omit'
-                        }, 3, 1000);
+                        }, 2, 600, 12000);
                         const text = await res.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) {
+                        if (text.trim().startsWith('<')) {
                             throw new Error("無法取得正確 JSON 資料格式 (收到 HTML)。請確認在 GAS 部署選擇 Execute as: Me 與 Who has access: Anyone！");
+                        }
+                        let data;
+                        try { 
+                            data = JSON.parse(text); 
+                        } catch (e) {
+                            throw new Error("無法解析伺服器回傳資料格式");
                         }
 
                         if (data.tickets && Array.isArray(data.tickets)) {
@@ -1761,11 +1777,11 @@ window.onerror = function(msg, url, line, col, error) {
 
                         isApiConnected.value = true;
                     } catch (error) {
-                        console.error("讀取失敗：", error);
+                        console.warn("雲端讀取微幅波動 (維持本地快取)：", error);
                         isApiConnected.value = false;
-                        if (!isSilent) {
-                            confirmDialog.title = "資料同步失敗";
-                            confirmDialog.message = error.message || "發生未知錯誤，請檢查網路連線或 API URL。";
+                        if (!isSilent && !error.message.includes("已自動無縫降級為本地快取")) {
+                            confirmDialog.title = "雲端暫處於快取/離線狀態";
+                            confirmDialog.message = (error.message || "目前網路連線較慢，系統已無縫切換為本地快取單據，所有叫修卡片皆可正常操作！") + " 待雲端恢復將自動接續同步。";
                             confirmDialog.isWarning = true;
                             confirmDialog.isOpen = true;
                         }
@@ -1815,7 +1831,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 credentials: 'omit',
                                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                                 body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
-                            }, 2, 500);
+                            }, 2, 500, 15000);
                             const text = await res.text();
                             try { JSON.parse(text); } catch (e) {}
                             isApiConnected.value = true;
@@ -1939,6 +1955,17 @@ window.onerror = function(msg, url, line, col, error) {
                     localStorage.removeItem("gas_repair_api_url");
                     closeSettingsModal();
                     fetchData(false);
+                };
+
+                const resetToDefaultApiUrl = async () => {
+                    apiUrlInput.value = defaultApiUrl;
+                    apiUrl.value = defaultApiUrl;
+                    localStorage.setItem("gas_repair_api_url", defaultApiUrl);
+                    closeSettingsModal();
+                    await fetchData(false);
+                    if (isApiConnected.value) {
+                        alert("✅ 已成功重設並連線至官方預設 Apps Script API！");
+                    }
                 };
 
                 // ⚡ 自動保溫心跳 (Keep-Alive Ping)：每 3 分鐘輕量 ping 一次，避免 GAS 進入冷啟動休眠
@@ -2723,7 +2750,7 @@ window.onerror = function(msg, url, line, col, error) {
                     isUploadingImage, uploadProgressText, isVideoUrl,
                     activeView, showDayModal, selectedDay, openDayModal, closeDayModal, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
-                    apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
+                    apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, resetToDefaultApiUrl, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
                 };
             }
         };

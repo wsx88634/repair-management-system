@@ -1194,23 +1194,28 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                 };
 
-                const fetchWithRetry = async (url, options = {}, maxRetries = 3, delayMs = 1000) => {
+                const fetchWithRetry = async (url, options = {}, maxRetries = 2, delayMs = 600, timeoutMs = 12000) => {
                     let lastErr = null;
                     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), timeoutMs);
                         try {
-                            const res = await fetch(url, options);
+                            const reqOptions = {
+                                ...options,
+                                signal: controller.signal
+                            };
+                            const res = await fetch(url, reqOptions);
+                            clearTimeout(timer);
                             if (res.ok) {
-                                const clone = res.clone();
-                                const text = await clone.text();
-                                if (text.trim().startsWith('<')) {
-                                    throw new Error("Received HTML instead of JSON from GAS");
-                                }
                                 return res;
                             }
                             if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
                             else return res;
                         } catch (err) {
-                            lastErr = err;
+                            clearTimeout(timer);
+                            lastErr = (err && err.name === 'AbortError') 
+                                ? new Error(`雲端連線逾時 (${Math.round(timeoutMs / 1000)}秒無回應)，已自動無縫降級為本地快取`) 
+                                : err;
                             if (attempt < maxRetries) await new Promise(r => setTimeout(r, delayMs * attempt));
                         }
                     }
