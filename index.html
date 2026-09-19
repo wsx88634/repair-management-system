@@ -855,35 +855,34 @@ window.onerror = function(msg, url, line, col, error) {
                             <span>{{ uploadProgressText }}</span>
                         </div>
 
-                        <!-- 圖片顯示區塊 (與圖片一模一樣的虛線框) -->
-                        <div class="border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/50 flex flex-col items-center justify-center min-h-[110px]">
+                        <!-- 圖片顯示區塊 (直向寬度/高度縮短一半，照片由左至右靠左排列) -->
+                        <div class="border-2 border-dashed border-slate-200 rounded-xl p-2.5 bg-slate-50/50 flex flex-col justify-center min-h-[58px]">
                             <!-- 無圖片時 -->
-                            <div v-if="!editData.attachments || editData.attachments.length === 0" class="flex flex-col items-center justify-center text-slate-400 space-y-2">
-                                <l-icon name="image" class="w-8 h-8 opacity-40"></l-icon>
+                            <div v-if="!editData.attachments || editData.attachments.length === 0" class="flex items-center justify-center text-slate-400 gap-2 py-1">
+                                <l-icon name="image" class="w-5 h-5 opacity-40 shrink-0"></l-icon>
                                 <p class="text-xs font-semibold">尚未夾帶任何附件 (照片/影片將自動存入 Google Drive)</p>
                             </div>
 
-                            <!-- 有圖片時 -->
-                            <div v-else class="flex flex-wrap gap-4 items-center justify-center w-full">
-                                <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative group w-36 h-28 rounded-xl border border-slate-300 overflow-hidden shadow-sm bg-black">
+                            <!-- 有圖片時 (由左至右靠左排列) -->
+                            <div v-else class="flex flex-wrap gap-2.5 items-center justify-start w-full">
+                                <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative group w-24 h-16 rounded-lg border border-slate-300 overflow-hidden shadow-sm bg-black shrink-0">
                                     <img v-if="!isPdf(img)" :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300 bg-white" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
-                                    <div v-else class="w-full h-full bg-red-50 flex flex-col items-center justify-center p-2 text-center cursor-pointer hover:bg-red-100 transition-colors" @click="openPdf(img)" title="在新分頁開啟 PDF">
-                                        <l-icon name="file-text" class="w-8 h-8 text-red-500 mb-1"></l-icon>
-                                        <span class="text-[11px] font-bold text-red-800 truncate w-full px-1">PDF 文件</span>
-                                        <span class="text-[10px] font-medium text-red-600">在新頁面開啟</span>
+                                    <div v-else class="w-full h-full bg-red-50 flex flex-col items-center justify-center p-1 text-center cursor-pointer hover:bg-red-100 transition-colors" @click="openPdf(img)" title="在新分頁開啟 PDF">
+                                        <l-icon name="file-text" class="w-5 h-5 text-red-500 mb-0.5"></l-icon>
+                                        <span class="text-[10px] font-bold text-red-800 truncate w-full px-0.5">PDF 文件</span>
                                     </div>
-                                    <button @click="removeAttachment(idx)" class="absolute top-1.5 right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-colors z-10" title="刪除附件">
-                                        <l-icon name="x" class="w-4 h-4"></l-icon>
+                                    <button @click="removeAttachment(idx)" class="absolute top-1 right-1 bg-red-500/90 hover:bg-red-600 text-white rounded-full p-0.5 shadow-md transition-colors z-10" title="刪除附件">
+                                        <l-icon name="x" class="w-3.5 h-3.5"></l-icon>
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 詳細備註與其他資訊 -->
+                    <!-- 詳細備註與其他資訊 (高度增加2倍) -->
                     <div>
                         <label class="label-style">詳細備註與其他資訊</label>
-                        <textarea v-model="editData.details" @input="onEditDetailsInput" class="input-style mt-1 min-h-[120px] custom-scrollbar leading-relaxed font-medium" placeholder="請輸入詳細備註資訊 (第一行將自動帶入問題狀況)..."></textarea>
+                        <textarea v-model="editData.details" @input="onEditDetailsInput" rows="8" class="input-style mt-1 min-h-[240px] resize-y custom-scrollbar leading-relaxed font-medium" placeholder="請輸入詳細備註資訊 (第一行將自動帶入問題狀況)..."></textarea>
                     </div>
 
                     <!-- 🕒 案件時間節點紀錄區 (活動歷程時間軸) -->

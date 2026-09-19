@@ -651,23 +651,23 @@ window.onerror = function(msg, url, line, col, error) {
                             <span>{{ uploadProgressText }}</span>
                         </div>
                         
-                        <div v-if="editData.attachments && editData.attachments.length > 0" class="flex flex-wrap gap-3 mt-1 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-inner min-h-[90px]">
-                            <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative w-20 h-20 rounded-lg border border-slate-300 shadow-sm overflow-hidden group bg-black">
-                                <img :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
-                                <button @click="removeAttachment(idx)" class="absolute -top-1 -right-1 bg-white text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100 p-1 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200" title="移除此附件">
+                        <div v-if="editData.attachments && editData.attachments.length > 0" class="flex flex-wrap gap-2.5 items-center justify-start mt-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-inner min-h-[58px]">
+                            <div v-for="(img, idx) in editData.attachments" :key="idx" class="relative w-24 h-16 rounded-lg border border-slate-300 shadow-sm overflow-hidden group bg-black shrink-0">
+                                <img :src="img" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300" @click="viewImage(img, editData.attachments)" title="點擊放大觀看" />
+                                <button @click="removeAttachment(idx)" class="absolute top-1 right-1 bg-white text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-100 p-1 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200" title="移除此附件">
                                     <l-icon name="x" class="w-3 h-3"></l-icon>
                                 </button>
                             </div>
                         </div>
-                        <div v-else class="text-xs text-slate-400 mt-1 p-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
-                            <l-icon name="image" class="w-6 h-6 opacity-40"></l-icon>
+                        <div v-else class="text-xs text-slate-400 mt-1 p-2.5 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center gap-2">
+                            <l-icon name="image" class="w-5 h-5 opacity-40 shrink-0"></l-icon>
                             <span>尚未夾帶任何附件 (照片將自動存入 Google Drive)</span>
                         </div>
                     </div>
 
                     <div>
                         <label class="label-style">詳細備註與其他資訊</label>
-                        <textarea v-model="editData.details" @input="onEditDetailsInput" rows="4" class="input-style mt-1 resize-y custom-scrollbar text-sm leading-relaxed" placeholder="聯絡人、電話、地址、詳細故障原因 (第一行將自動帶入問題狀況)..."></textarea>
+                        <textarea v-model="editData.details" @input="onEditDetailsInput" rows="8" class="input-style mt-1 min-h-[240px] resize-y custom-scrollbar text-sm leading-relaxed" placeholder="聯絡人、電話、地址、詳細故障原因 (第一行將自動帶入問題狀況)..."></textarea>
                     </div>
 
                     <!-- 🕒 案件時間節點紀錄區 (活動歷程時間軸) -->
