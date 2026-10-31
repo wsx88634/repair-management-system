@@ -1132,6 +1132,10 @@ window.onerror = function(msg, url, line, col, error) {
                         <button @click="forceSyncToCloud" class="text-emerald-700 hover:text-emerald-800 text-xs font-bold flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg border border-emerald-200 transition-colors">
                             <l-icon name="upload-cloud" class="w-3.5 h-3.5"></l-icon> 手動強制覆寫雲端
                         </button>
+                        <span class="text-slate-300">|</span>
+                        <button @click="forceResetFromCloud" class="text-rose-700 hover:text-rose-800 text-xs font-bold flex items-center gap-1 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg border border-rose-200 transition-colors">
+                            <l-icon name="refresh-cw" class="w-3.5 h-3.5"></l-icon> 清除本機快取 (強制對齊雲端)
+                        </button>
                     </div>
                     <div class="flex items-center gap-2">
                         <button @click="closeSettingsModal" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200">取消</button>
@@ -1596,7 +1600,7 @@ window.onerror = function(msg, url, line, col, error) {
                     return Array.from(map.values());
                 };
 
-                const mergeTickets = (incoming) => {
+                const mergeTickets = (incoming, forceCloudOnly = false) => {
                     const deletedIds = getDeletedTicketIds();
                     if (!incoming || !Array.isArray(incoming)) {
                         return deduplicateTickets((tickets.value || []).filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
@@ -1626,15 +1630,15 @@ window.onerror = function(msg, url, line, col, error) {
 
                     const mergedMap = new Map();
 
-                    // 3. 合併雲端與本地單據
+                    // 3. 合併雲端與本地單據 (以雲端試算表為唯一真理 Single Source of Truth)
                     incomingMap.forEach((inc, id) => {
                         const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || (local ? local.reportTime : ''));
                         let safeCompletedDate = formatLocalDate(inc.completedDate || (local ? local.completedDate : '') || '');
                         let safeStatus = normalizeStatus(inc.status || (local ? local.status : "未執行"));
 
-                        // 若本機正在儲存中，或目前正在彈窗編輯此單，以本機狀態為最高優先級
-                        let finalEngineer = inc.engineer || (local ? local.engineer : '未指派');
+                        // 僅當本地正在即時儲存中、或當前彈窗正在開啟編輯此單時，保留本地剛打的字
+                        let finalEngineer = inc.engineer || '未指派';
                         let finalStatus = safeStatus;
                         if (local && (isSaving.value || (selectedTicket.value && String(selectedTicket.value.id) === id))) {
                             finalEngineer = local.engineer || finalEngineer;
@@ -1649,7 +1653,7 @@ window.onerror = function(msg, url, line, col, error) {
                         }
                         safeAttachments = (safeAttachments || []).filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('data:application/pdf') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
-                        let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
+                        let safeIssue = inc.issue || (inc.details ? inc.details.split('\n')[0].trim() : '') || (local ? local.issue : '');
 
                         let safeLogs = [];
                         if (inc.logs && Array.isArray(inc.logs) && inc.logs.length > 0) {
@@ -1666,20 +1670,26 @@ window.onerror = function(msg, url, line, col, error) {
                             issue: safeIssue,
                             reportTime: safeReportDate,
                             completedDate: safeCompletedDate,
-                            quoteState: inc.quoteState || (local ? local.quoteState : '') || '',
-                            isArchived: inc.isArchived !== undefined ? inc.isArchived : (local ? local.isArchived : false),
-                            details: inc.details || (local ? local.details : '') || '',
+                            quoteState: inc.quoteState !== undefined ? inc.quoteState : (local ? local.quoteState : ''),
+                            isArchived: inc.isArchived !== undefined ? Boolean(inc.isArchived) : false,
+                            details: inc.details !== undefined ? inc.details : (local ? local.details : ''),
                             attachments: safeAttachments,
                             logs: safeLogs
                         });
                     });
 
-                    // 4. 合併本機尚未推送至雲端的新單據
-                    localMap.forEach((local, id) => {
-                        if (!mergedMap.has(id)) {
-                            mergedMap.set(id, local);
-                        }
-                    });
+                    // 4. 關鍵修復：僅當單據為 15 分鐘內本地剛建立且正在等待同步 (_isLocalPending) 時才保留；過期孤兒單一律剔除以雲端為唯一真實依據
+                    if (!forceCloudOnly) {
+                        const now = Date.now();
+                        localMap.forEach((local, id) => {
+                            if (!mergedMap.has(id)) {
+                                const isRecentLocalDraft = Boolean(local && local._isLocalPending && local._localCreatedAt && (now - local._localCreatedAt < 15 * 60 * 1000));
+                                if (isRecentLocalDraft) {
+                                    mergedMap.set(id, local);
+                                }
+                            }
+                        });
+                    }
 
                     return Array.from(mergedMap.values());
                 };
@@ -1712,7 +1722,7 @@ window.onerror = function(msg, url, line, col, error) {
                     throw lastErr || new Error("網路連線逾時");
                 };
 
-                const fetchData = async (isBackground) => {
+                const fetchData = async (isBackground, forceCloudOnly = false) => {
                     const isSilent = isBackground === true;
                     if (isSaving.value || isSyncing) return; // 正在進行本機寫入時，跳過背景讀取避免暫態舊資料覆蓋
 
@@ -1765,7 +1775,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 engineers.value = [...defaultEngineers];
                                 await saveData();
                             } else {
-                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets));
+                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets, forceCloudOnly));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                         }
@@ -1933,14 +1943,35 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const manualRefresh = async () => {
-                    await fetchData(false);
-                    if (isApiConnected.value) {
-                        alert(`✅ 已與雲端同步！成功從 Google 試算表載入最新 ${tickets.value.length} 筆單據！`);
-                    } else {
-                        alert("⚠️ 雲端連線異常，目前維持本地快取單據。");
+                    isLoading.value = true;
+                    try {
+                        await fetchData(false, true);
+                        if (isApiConnected.value) {
+                            confirmDialog.title = "雲端同步成功";
+                            confirmDialog.message = `已成功從 Google 試算表載入最新 ${tickets.value.length} 筆單據（已自動校驗並清除本機過期快取）！`;
+                            confirmDialog.isWarning = false;
+                            confirmDialog.isOpen = true;
+                        } else {
+                            confirmDialog.title = "雲端暫處於快取模式";
+                            confirmDialog.message = "目前網路暫時處於本機離線快取，待雲端恢復將自動接續同步。";
+                            confirmDialog.isWarning = true;
+                            confirmDialog.isOpen = true;
+                        }
+                    } finally {
+                        isLoading.value = false;
                     }
                 };
 
+                                const forceResetFromCloud = async () => {
+                    if (!confirm("確定要清除本機瀏覽器暫存快取，並強制從 Google 試算表重新完整對齊最新資料嗎？")) return;
+                    localStorage.removeItem("local_repair_tickets_v2");
+                    closeSettingsModal();
+                    await fetchData(false, true);
+                    confirmDialog.title = "快取重置完成";
+                    confirmDialog.message = `已成功清除本機暫存，並完整對齊 Google 試算表最新 ${tickets.value.length} 筆單據！`;
+                    confirmDialog.isWarning = false;
+                    confirmDialog.isOpen = true;
+                };
                 const saveApiSettings = async () => {
                     const url = apiUrlInput.value.trim();
                     apiUrl.value = url;
@@ -2159,7 +2190,9 @@ window.onerror = function(msg, url, line, col, error) {
                         quoteState: '',
                         isArchived: false,
                         attachments: [],
-                        logs: []
+                        logs: [],
+                        _isLocalPending: true,
+                        _localCreatedAt: Date.now()
                     };
                     addTicketLog(newTicket, '案件成立', `建立叫修案件 (客戶: ${newTicket.customer}，機型: ${newTicket.model})`, '系統/管理者');
                     if (newTicket.engineer && newTicket.engineer !== '未指派') {
@@ -2750,7 +2783,7 @@ window.onerror = function(msg, url, line, col, error) {
                     isUploadingImage, uploadProgressText, isVideoUrl,
                     activeView, showDayModal, selectedDay, openDayModal, closeDayModal, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
                     apiUrl, showSettingsModal, openSettingsModal, closeSettingsModal, isSettingsAuthenticated, settingsPasswordInput, verifySettingsPassword,
-                    apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, resetToDefaultApiUrl, syncAllImportedToGAS, forceSyncToCloud, manualRefresh
+                    apiUrlInput, isApiConnected, saveApiSettings, clearApiSettings, resetToDefaultApiUrl, syncAllImportedToGAS, forceSyncToCloud, forceResetFromCloud, manualRefresh
                 };
             }
         };

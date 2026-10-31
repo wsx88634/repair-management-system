@@ -1079,7 +1079,7 @@ window.onerror = function(msg, url, line, col, error) {
                     return Array.from(map.values());
                 };
 
-                const mergeTickets = (incoming) => {
+                const mergeTickets = (incoming, forceCloudOnly = false) => {
                     const deletedIds = getDeletedTicketIds();
                     if (!incoming || !Array.isArray(incoming)) return deduplicateTickets((tickets.value || []).filter(t => t && t.id && !deletedIds.has(String(t.id).trim())));
 
@@ -1107,7 +1107,7 @@ window.onerror = function(msg, url, line, col, error) {
 
                     const mergedMap = new Map();
 
-                    // 3. 合併雲端與本地單據
+                    // 3. 合併雲端與本地單據 (以雲端試算表為唯一真理 Single Source of Truth)
                     incomingMap.forEach((inc, id) => {
                         const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || "");
@@ -1144,13 +1144,13 @@ window.onerror = function(msg, url, line, col, error) {
                                 completedDate: safeCompletedDate,
                                 engineer: local.engineer,
                                 status: normalizeStatus(local.status || safeStatus),
-                                quoteState: local.quoteState,
+                                quoteState: local.quoteState !== undefined ? local.quoteState : '',
                                 customer: local.customer,
                                 model: local.model,
                                 details: local.details,
                                 attachments: local.attachments || attachmentsList,
                                 logs: safeLogs,
-                                isArchived: inc.isArchived || false
+                                isArchived: inc.isArchived !== undefined ? Boolean(inc.isArchived) : false
                             });
                         } else {
                             mergedMap.set(id, {
@@ -1162,17 +1162,23 @@ window.onerror = function(msg, url, line, col, error) {
                                 quoteState: inc.quoteState || '',
                                 attachments: attachmentsList,
                                 logs: safeLogs,
-                                isArchived: inc.isArchived || false
+                                isArchived: inc.isArchived !== undefined ? Boolean(inc.isArchived) : false
                             });
                         }
                     });
 
-                    // 4. 合併本機尚未推送至雲端的新單據
-                    localMap.forEach((local, id) => {
-                        if (!mergedMap.has(id)) {
-                            mergedMap.set(id, local);
-                        }
-                    });
+                    // 4. 關鍵修復：僅當單據為 15 分鐘內本地剛建立且等待同步 (_isLocalPending) 時才保留；過期孤兒單一律剔除以雲端為準
+                    if (!forceCloudOnly) {
+                        const now = Date.now();
+                        localMap.forEach((local, id) => {
+                            if (!mergedMap.has(id)) {
+                                const isRecentLocalDraft = Boolean(local && local._isLocalPending && local._localCreatedAt && (now - local._localCreatedAt < 15 * 60 * 1000));
+                                if (isRecentLocalDraft) {
+                                    mergedMap.set(id, local);
+                                }
+                            }
+                        });
+                    }
 
                     return Array.from(mergedMap.values());
                 };
@@ -1222,7 +1228,7 @@ window.onerror = function(msg, url, line, col, error) {
                     throw lastErr || new Error("網路連線逾時");
                 };
 
-                const fetchData = async (isBackground = false) => {
+                const fetchData = async (isBackground = false, forceCloudOnly = false) => {
                     if (isSaving.value || isSyncing) return; // 正在進行本機寫入時，跳過背景讀取避免暫態舊資料覆蓋
                     if (!isBackground) isLoading.value = true;
                     try {
@@ -1242,7 +1248,7 @@ window.onerror = function(msg, url, line, col, error) {
                             }
                             if (data.tickets && Array.isArray(data.tickets) && data.tickets.length > 0) {
                                 const cleanTickets = data.tickets.filter(t => t && t.id && !deletedIds.has(String(t.id).trim()));
-                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets));
+                                tickets.value = deduplicateTickets(mergeTickets(cleanTickets, forceCloudOnly));
                                 localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                             }
                             isApiConnected.value = true;
@@ -1351,11 +1357,16 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const manualRefresh = async () => {
-                    await fetchData(false);
-                    if (isApiConnected.value) {
-                        alert(`✅ 已與雲端同步！成功從 Google 試算表載入最新 ${tickets.value.length} 筆單據！`);
-                    } else {
-                        alert("⚠️ 雲端連線異常，目前維持本地快取單據。");
+                    isLoading.value = true;
+                    try {
+                        await fetchData(false, true);
+                        if (isApiConnected.value) {
+                            alert(`✅ 已與雲端同步完成！成功從 Google 試算表載入最新 ${tickets.value.length} 筆單據（已自動校驗並清除本機過期快取）。`);
+                        } else {
+                            alert("⚠️ 雲端暫處於離線狀態，目前維持本地快取。");
+                        }
+                    } finally {
+                        isLoading.value = false;
                     }
                 };
 
