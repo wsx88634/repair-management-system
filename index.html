@@ -1689,15 +1689,61 @@ window.onerror = function(msg, url, line, col, error) {
                         <button @click="addEngineer" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm whitespace-nowrap">新增</button>
                     </div>
 
-                    <div class="space-y-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
-                        <div v-for="(eng, idx) in engineers" :key="idx" class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-                            <span v-if="editEngIndex !== idx" class="font-bold text-slate-800 text-sm">{{ eng }}</span>
-                            <input v-else v-model="editEngName" class="input-style py-1 px-2 text-sm max-w-[140px]" @keyup.enter="saveEngineerEdit(idx)" />
+                    <div class="text-xs text-slate-500 bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 flex items-center gap-1.5 font-medium">
+                        <l-icon name="info" class="w-4 h-4 text-blue-500 shrink-0"></l-icon>
+                        <span>可拖曳左側把手或點擊上下箭頭調整順序，主看板與選單將即時同步更新並儲存至雲端。</span>
+                    </div>
 
-                            <div class="flex items-center gap-1">
-                                <button v-if="editEngIndex !== idx" @click="startEditEngineer(idx, eng)" class="text-slate-400 hover:text-blue-600 p-1 rounded"><l-icon name="edit-2" class="w-4 h-4"></l-icon></button>
+                    <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                        <div
+                            v-for="(eng, idx) in engineers"
+                            :key="eng"
+                            draggable="true"
+                            @dragstart="onEngDragStart(idx)"
+                            @dragover.prevent="dragOverEngIndex = idx"
+                            @dragleave="if (dragOverEngIndex === idx) dragOverEngIndex = -1"
+                            @drop.prevent="onEngDrop(idx)"
+                            @dragend="draggingEngIndex = -1; dragOverEngIndex = -1"
+                            class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-white rounded-xl border transition-all gap-2"
+                            :class="{
+                                'opacity-50 scale-[0.98] border-blue-300': draggingEngIndex === idx,
+                                'border-blue-500 bg-blue-50/60 ring-2 ring-blue-200': dragOverEngIndex === idx && draggingEngIndex !== idx,
+                                'border-slate-200/80': draggingEngIndex !== idx && dragOverEngIndex !== idx
+                            }"
+                        >
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <span class="text-slate-400 cursor-grab active:cursor-grabbing p-1 hover:text-slate-600 shrink-0" title="按住拖曳調整順序">
+                                    <l-icon name="grip-vertical" class="w-4 h-4"></l-icon>
+                                </span>
+                                <span class="text-[11px] font-black text-slate-500 bg-white border border-slate-200 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 shadow-2xs">
+                                    {{ idx + 1 }}
+                                </span>
+                                <span v-if="editEngIndex !== idx" class="font-bold text-slate-800 text-sm truncate">{{ eng }}</span>
+                                <input v-else v-model="editEngName" class="input-style py-1 px-2 text-sm max-w-[140px]" @keyup.enter="saveEngineerEdit(idx)" />
+                            </div>
+
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button
+                                    @click="moveEngineer(idx, -1)"
+                                    :disabled="idx === 0"
+                                    class="p-1.5 rounded-lg border transition-colors"
+                                    :class="idx === 0 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
+                                    title="往上移一位"
+                                >
+                                    <l-icon name="chevron-up" class="w-3.5 h-3.5"></l-icon>
+                                </button>
+                                <button
+                                    @click="moveEngineer(idx, 1)"
+                                    :disabled="idx === engineers.length - 1"
+                                    class="p-1.5 rounded-lg border transition-colors"
+                                    :class="idx === engineers.length - 1 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
+                                    title="往下移一位"
+                                >
+                                    <l-icon name="chevron-down" class="w-3.5 h-3.5"></l-icon>
+                                </button>
+                                <button v-if="editEngIndex !== idx" @click="startEditEngineer(idx, eng)" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="修改名稱"><l-icon name="edit-2" class="w-4 h-4"></l-icon></button>
                                 <button v-else @click="saveEngineerEdit(idx)" class="text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-1 rounded border border-emerald-200">儲存</button>
-                                <button @click="confirmDeleteEngineer(idx)" class="text-slate-400 hover:text-red-600 p-1 rounded"><l-icon name="trash-2" class="w-4 h-4"></l-icon></button>
+                                <button @click="confirmDeleteEngineer(idx)" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="移除成員"><l-icon name="trash-2" class="w-4 h-4"></l-icon></button>
                             </div>
                         </div>
                     </div>
@@ -3133,6 +3179,37 @@ window.onerror = function(msg, url, line, col, error) {
                     confirmDialog.isOpen = false;
                 };
 
+                const draggingEngIndex = ref(-1);
+                const dragOverEngIndex = ref(-1);
+
+                const moveEngineer = async (index, direction) => {
+                    const targetIndex = index + direction;
+                    if (targetIndex < 0 || targetIndex >= engineers.value.length) return;
+                    editEngIndex.value = -1;
+                    const list = [...engineers.value];
+                    const [moved] = list.splice(index, 1);
+                    list.splice(targetIndex, 0, moved);
+                    engineers.value = list;
+                    await saveData();
+                };
+
+                const onEngDragStart = (index) => {
+                    draggingEngIndex.value = index;
+                };
+
+                const onEngDrop = async (targetIndex) => {
+                    const fromIndex = draggingEngIndex.value;
+                    draggingEngIndex.value = -1;
+                    dragOverEngIndex.value = -1;
+                    if (fromIndex === -1 || fromIndex === targetIndex) return;
+                    editEngIndex.value = -1;
+                    const list = [...engineers.value];
+                    const [moved] = list.splice(fromIndex, 1);
+                    list.splice(targetIndex, 0, moved);
+                    engineers.value = list;
+                    await saveData();
+                };
+
                 const addEngineer = async () => {
                     const name = newEngName.value.trim();
                     if (name && !engineers.value.includes(name) && name !== '未指派') {
@@ -3649,6 +3726,7 @@ window.onerror = function(msg, url, line, col, error) {
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
                     onFormDetailsInput, onFormIssueInput, onEditDetailsInput, onEditIssueInput,
                     showEngModal, newEngName, editEngIndex, editEngName, addEngineer, startEditEngineer, saveEngineerEdit, confirmDeleteEngineer,
+                    draggingEngIndex, dragOverEngIndex, moveEngineer, onEngDragStart, onEngDrop,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, getDisplayLogs,
                     confirmDialog, executeConfirm, isLoading,
                     confirmArchiveTicket, unarchiveTicket, confirmHardDeleteTicket, confirmBatchArchive,
