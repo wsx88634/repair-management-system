@@ -151,19 +151,22 @@ window.onerror = function(msg, url, line, col, error) {
                             </span>
                         </div>
                     </button>
+
+                    <button @click="openHistoryPage" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'history' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25 ring-2 ring-sky-300' : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="search" class="w-4 h-4"></l-icon>
+                            <span>歷史複查</span>
+                        </span>
+                        <span v-if="activeView === 'history'" class="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full">目前頁面</span>
+                        <span v-else class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-sky-200/80 text-sky-800">
+                            {{ tickets.length }} 筆
+                        </span>
+                    </button>
                 </div>
 
                 <!-- 系統管理功能選單 -->
                 <div class="space-y-2.5">
                     <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">系統管理工具</div>
-
-                    <button @click="openSearchModal" class="w-full flex items-center justify-between bg-sky-600 hover:bg-sky-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-sky-600/20 active:scale-[0.99] group">
-                        <span class="flex items-center gap-2.5">
-                            <l-icon name="search" class="w-4 h-4"></l-icon>
-                            <span>歷史複查</span>
-                        </span>
-                        <l-icon name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
-                    </button>
 
                     <button @click="openExportModal" class="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-600/20 active:scale-[0.99] group">
                         <span class="flex items-center gap-2.5">
@@ -931,6 +934,269 @@ window.onerror = function(msg, url, line, col, error) {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            </template>
+
+            <template v-else-if="activeView === 'history'">
+            <!-- 歷史紀錄複查與多維度智慧查詢專頁 -->
+            <div id="history-system-page" class="space-y-6">
+                <!-- 頂部搜尋與多條件篩選面板 -->
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-sky-200/80 space-y-5">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5">
+                        <div class="flex items-center gap-3.5">
+                            <div class="bg-sky-600 text-white p-3 rounded-2xl shadow-md shadow-sky-600/20 flex items-center justify-center">
+                                <l-icon name="search-code" class="w-6 h-6"></l-icon>
+                            </div>
+                            <div>
+                                <h2 class="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2.5 flex-wrap">
+                                    叫修歷史紀錄複查系統
+                                    <span class="text-xs font-extrabold bg-sky-100 text-sky-700 border border-sky-200 px-2.5 py-1 rounded-full">
+                                        符合 {{ allMatchedHistoryTickets.length }} / 共 {{ tickets.length }} 筆
+                                    </span>
+                                </h2>
+                                <p class="text-xs md:text-sm text-slate-500 font-medium mt-0.5">
+                                    支援即時關鍵字（可用空白分隔多詞查詢，如「金色三麥 漏水」）、工程師、狀態、封存與日期區間交叉篩選
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <button v-if="allMatchedHistoryTickets.length > 0" @click="exportSearchResult" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm shadow-emerald-600/20 transition-all active:scale-95">
+                                <l-icon name="download" class="w-4 h-4"></l-icon> 匯出查詢結果 ({{ allMatchedHistoryTickets.length }} 筆)
+                            </button>
+                            <button @click="activeView = 'kanban'" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm transition-all active:scale-95">
+                                <l-icon name="arrow-left" class="w-4 h-4"></l-icon> 返回叫修調度主看板
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 關鍵字即時搜尋框 -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-1">
+                            <input
+                                v-model="searchInput"
+                                @keyup.enter="executeSearch"
+                                placeholder="輸入 單號(T-xxxx)、客戶名稱、機型、問題狀況、工程師、電話、地址或備註（多關鍵字請用空白隔開）..."
+                                class="input-style pl-11 pr-10 py-3.5 text-sm md:text-base shadow-sm border-slate-300 w-full"
+                            />
+                            <l-icon name="search" class="absolute left-4 top-4 text-sky-500 w-5 h-5"></l-icon>
+                            <button v-if="searchInput" @click="searchInput = ''; executeSearch()" class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition-colors" title="清除關鍵字">
+                                <l-icon name="x-circle" class="w-5 h-5"></l-icon>
+                            </button>
+                        </div>
+                        <button @click="resetHistoryFilters" class="px-5 py-3.5 rounded-xl font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors">
+                            <l-icon name="rotate-ccw" class="w-4 h-4"></l-icon> 重置全部條件
+                        </button>
+                    </div>
+
+                    <!-- 多維度交叉篩選列 -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                        <div>
+                            <label class="text-[11px] font-bold text-slate-500 ml-1 mb-1 block">負責工程師</label>
+                            <div class="relative">
+                                <select v-model="historyFilters.engineer" class="input-style py-2 text-xs md:text-sm font-bold appearance-none pr-8 cursor-pointer bg-white">
+                                    <option value="全部">👤 全部工程師</option>
+                                    <option value="未指派">未指派</option>
+                                    <option v-for="eng in engineers" :key="eng" :value="eng">{{ eng }}</option>
+                                </select>
+                                <l-icon name="chevron-down" class="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></l-icon>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-bold text-slate-500 ml-1 mb-1 block">案件狀態</label>
+                            <div class="relative">
+                                <select v-model="historyFilters.status" class="input-style py-2 text-xs md:text-sm font-bold appearance-none pr-8 cursor-pointer bg-white">
+                                    <option value="全部">📌 全部狀態</option>
+                                    <option v-for="st in statuses" :key="st" :value="st">{{ st }}</option>
+                                </select>
+                                <l-icon name="chevron-down" class="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></l-icon>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-bold text-slate-500 ml-1 mb-1 block">封存範圍</label>
+                            <div class="relative">
+                                <select v-model="historyFilters.archived" class="input-style py-2 text-xs md:text-sm font-bold appearance-none pr-8 cursor-pointer bg-white">
+                                    <option value="全部">🗂️ 全部（含已封存）</option>
+                                    <option value="未封存">📋 僅看板未封存</option>
+                                    <option value="已封存">📦 僅歷史已封存</option>
+                                </select>
+                                <l-icon name="chevron-down" class="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></l-icon>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-bold text-slate-500 ml-1 mb-1 block">報修起始日</label>
+                            <input type="date" v-model="historyFilters.startDate" class="input-style py-2 text-xs md:text-sm font-medium bg-white" />
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-bold text-slate-500 ml-1 mb-1 block">報修結束日 &amp; 排序</label>
+                            <div class="flex gap-1.5">
+                                <input type="date" v-model="historyFilters.endDate" class="input-style py-2 text-xs font-medium bg-white flex-1 min-w-0" />
+                                <button @click="historyFilters.sortOrder = historyFilters.sortOrder === 'desc' ? 'asc' : 'desc'" :title="historyFilters.sortOrder === 'desc' ? '目前：最新優先 (點擊切換最舊優先)' : '目前：最舊優先 (點擊切換最新優先)'" class="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold shrink-0 flex items-center gap-1 shadow-2xs transition-colors">
+                                    <l-icon :name="historyFilters.sortOrder === 'desc' ? 'arrow-down-wide-narrow' : 'arrow-up-narrow-wide'" class="w-4 h-4 text-sky-600"></l-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 即時查詢統計卡 -->
+                    <div v-if="searchStats" class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                        <div class="bg-sky-50/70 border border-sky-200/80 p-3.5 rounded-xl flex items-center gap-3">
+                            <div class="p-2.5 bg-white text-sky-600 rounded-xl shadow-2xs"><l-icon name="history" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-sky-800 font-bold">符合條件案件數</div>
+                                <div class="text-xl font-black text-sky-950">{{ searchStats.total }} 筆</div>
+                            </div>
+                        </div>
+                        <div class="bg-emerald-50/70 border border-emerald-200/80 p-3.5 rounded-xl flex items-center gap-3">
+                            <div class="p-2.5 bg-white text-emerald-600 rounded-xl shadow-2xs"><l-icon name="award" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-emerald-800 font-bold">完修結案達成率</div>
+                                <div class="text-xl font-black text-emerald-950">{{ searchStats.completionRate }}%</div>
+                            </div>
+                        </div>
+                        <div class="bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-xl flex items-center gap-3">
+                            <div class="p-2.5 bg-white text-amber-600 rounded-xl shadow-2xs"><l-icon name="clock" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-amber-800 font-bold">平均要求時效</div>
+                                <div class="text-xl font-black text-amber-950">{{ searchStats.avgSla }} 天</div>
+                            </div>
+                        </div>
+                        <div class="bg-purple-50/70 border border-purple-200/80 p-3.5 rounded-xl flex items-center gap-3">
+                            <div class="p-2.5 bg-white text-purple-600 rounded-xl shadow-2xs"><l-icon name="paperclip" class="w-5 h-5"></l-icon></div>
+                            <div>
+                                <div class="text-xs text-purple-800 font-bold">含附件/報價單案件</div>
+                                <div class="text-xl font-black text-purple-950">{{ searchStats.withAttachments }} 筆</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 查詢結果列表 -->
+                <div class="space-y-3.5">
+                    <div class="flex items-center justify-between px-1 text-xs font-bold text-slate-500">
+                        <span>
+                            目前顯示前 {{ displayHistoryTickets.length }} 筆（共符合 {{ allMatchedHistoryTickets.length }} 筆，{{ historyFilters.sortOrder === 'desc' ? '依報修日由新到舊' : '依報修日由舊到新' }}）
+                        </span>
+                    </div>
+
+                    <div v-for="ticket in displayHistoryTickets" :key="ticket.id" class="p-4 md:p-5 bg-white hover:bg-slate-50/60 rounded-2xl border border-slate-200 transition-all shadow-sm flex flex-col justify-between gap-3" :class="ticket.isArchived ? 'border-l-4 border-l-slate-400' : 'border-l-4 border-l-sky-500'">
+                        <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                            <div class="flex-1 space-y-2 min-w-0">
+                                <div class="flex items-center flex-wrap gap-2">
+                                    <span class="text-xs font-black text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">{{ ticket.id }}</span>
+                                    <span @click="openTicketModal(ticket)" class="text-base font-extrabold text-slate-800 hover:text-sky-600 cursor-pointer transition-colors">{{ ticket.customer }}</span>
+                                    <span class="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">機型: {{ ticket.model || '未填寫' }}</span>
+                                    <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-100 flex items-center gap-1">
+                                        <l-icon name="user" class="w-3 h-3"></l-icon>
+                                        {{ ticket.engineer || '未指派' }}
+                                    </span>
+                                    <span v-if="ticket.attachments && ticket.attachments.length > 0" class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1" title="該單據有夾帶附件檔案">
+                                        <l-icon name="paperclip" class="w-3 h-3"></l-icon> {{ ticket.attachments.length }} 附件
+                                    </span>
+                                    <span v-if="ticket.isArchived" class="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                                        <l-icon name="archive" class="w-3 h-3"></l-icon> 已封存
+                                    </span>
+                                </div>
+
+                                <div v-if="ticket.issue" class="text-xs font-bold text-amber-800 bg-amber-50/70 border border-amber-200/70 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
+                                    <l-icon name="alert-circle" class="w-3.5 h-3.5 text-amber-600 shrink-0"></l-icon>
+                                    <span>問題狀況：{{ ticket.issue }}</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                                    <div><span class="text-slate-400 font-bold">👤 聯絡人:</span> <span class="font-semibold text-slate-700">{{ parseDetails(ticket.details).contact || '---' }}</span></div>
+                                    <div>
+                                        <span class="text-slate-400 font-bold">📞 電話:</span> 
+                                        <a v-if="parseDetails(ticket.details).phone" :href="'tel:' + parseDetails(ticket.details).phone" class="font-bold text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-0.5 ml-1 transition-colors">
+                                            {{ parseDetails(ticket.details).phone }}
+                                            <l-icon name="phone-call" class="w-3 h-3 text-blue-500"></l-icon>
+                                        </a>
+                                        <span v-else class="font-semibold text-slate-700">---</span>
+                                    </div>
+                                    <div><span class="text-slate-400 font-bold">🛡️ 保固:</span> <span class="font-semibold text-slate-700">{{ parseDetails(ticket.details).warranty || '---' }}</span></div>
+                                    <div class="col-span-1 md:col-span-1">
+                                        <span class="text-slate-400 font-bold">📍 地點:</span> 
+                                        <a v-if="parseDetails(ticket.details).address" :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parseDetails(ticket.details).address)" target="_blank" class="font-bold text-sky-600 hover:text-sky-800 underline inline-flex items-center gap-0.5 ml-1 truncate max-w-[140px] align-bottom transition-colors" :title="'導航至: ' + parseDetails(ticket.details).address">
+                                            {{ parseDetails(ticket.details).address }}
+                                            <l-icon name="navigation" class="w-3 h-3 text-sky-500"></l-icon>
+                                        </a>
+                                        <span v-else class="font-semibold text-slate-700">---</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="shrink-0 flex flex-row md:flex-col justify-between md:justify-center items-center md:items-end gap-2 md:border-l border-slate-200 md:pl-5 min-w-[170px]">
+                                <span :class="getStatusColor(ticket)" class="px-3 py-1 rounded-full text-xs font-extrabold border shadow-2xs">
+                                    {{ ticket.status }} <span v-if="ticket.status === '報價'">({{ ticket.quoteState || '未報價' }})</span>
+                                </span>
+                                <div class="text-right text-xs text-slate-500 space-y-0.5 font-semibold">
+                                    <div>報修: {{ ticket.reportTime }}</div>
+                                    <div v-if="ticket.completedDate" class="text-rose-600 font-bold">完工: {{ ticket.completedDate }}</div>
+                                </div>
+                                <div class="flex items-center gap-1.5 mt-1">
+                                    <button @click="openTicketModal(ticket)" class="text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1">
+                                        <l-icon name="edit-3" class="w-3 h-3"></l-icon> 編輯詳情
+                                    </button>
+                                    <button v-if="ticket.isArchived" @click="unarchiveTicket(ticket.id)" class="text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors" title="解除封存並還原至主看板">
+                                        還原
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-100 pt-2.5 flex flex-col items-end">
+                            <button @click="toggleNote(ticket.id)" class="text-xs text-slate-600 hover:text-sky-700 font-bold flex items-center gap-1.5 transition-colors bg-slate-100 hover:bg-sky-50 px-3 py-1.5 rounded-lg">
+                                <l-icon :name="isNoteOpen(ticket.id) ? 'chevron-up' : 'chevron-down'" class="w-3.5 h-3.5"></l-icon>
+                                <span>{{ isNoteOpen(ticket.id) ? '隱藏詳細備註與附件' : '📄 展開詳細備註與附件' }}</span>
+                            </button>
+                            <div v-if="isNoteOpen(ticket.id)" class="w-full mt-2.5 text-xs text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-200/70 transition-all">
+                                <div class="font-bold text-amber-800 flex items-center gap-1.5 mb-2 border-b border-amber-200/60 pb-1.5">
+                                    <l-icon name="alert-circle" class="w-4 h-4 text-amber-500"></l-icon> 完整備註細節與故障主因：
+                                </div>
+                                <div class="whitespace-pre-line pl-1 text-slate-700 font-medium leading-relaxed">
+                                    {{ ticket.details || "（無輸入任何詳細資訊）" }}
+                                </div>
+                                
+                                <div v-if="ticket.attachments && ticket.attachments.length > 0" class="mt-4 pt-3 border-t border-amber-200/60">
+                                    <div class="font-bold text-amber-800 flex items-center gap-1.5 mb-2.5">
+                                        <l-icon name="paperclip" class="w-4 h-4 text-blue-500"></l-icon> 夾帶附件 / 報價單 ({{ ticket.attachments.length }})：
+                                    </div>
+                                    <div class="flex flex-wrap gap-2.5">
+                                        <template v-for="(att, idx) in ticket.attachments" :key="idx">
+                                            <div v-if="isPdf(att)" @click="openPdf(att)" class="flex items-center gap-2 bg-white border border-rose-200 hover:border-rose-400 rounded-xl px-3 py-2 cursor-pointer shadow-2xs transition-colors">
+                                                <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-black text-[10px]">PDF</div>
+                                                <div class="text-xs font-bold text-slate-700">PDF 文件 #{{ idx + 1 }}</div>
+                                            </div>
+                                            <img v-else :src="att"
+                                                class="w-20 h-20 object-cover rounded-xl border border-amber-200 shadow-sm cursor-pointer hover:opacity-85 transition-opacity"
+                                                @click="viewImage(att, ticket.attachments)" title="點擊放大觀看" />
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 分頁載入更多 -->
+                    <div v-if="allMatchedHistoryTickets.length > displayHistoryTickets.length" class="flex items-center justify-center gap-3 pt-2">
+                        <button @click="historyDisplayLimit += 50" class="bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all">
+                            載入更多紀錄（尚有 {{ allMatchedHistoryTickets.length - displayHistoryTickets.length }} 筆）
+                        </button>
+                        <button @click="historyDisplayLimit = allMatchedHistoryTickets.length" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all">
+                            顯示全部
+                        </button>
+                    </div>
+
+                    <div v-if="displayHistoryTickets.length === 0" class="bg-white rounded-2xl border border-slate-200 flex flex-col items-center justify-center py-20 text-slate-400">
+                        <l-icon name="search-x" class="w-12 h-12 mb-3 opacity-30"></l-icon>
+                        <p class="font-bold text-slate-500 text-lg">沒有找到符合目前篩選條件的任何案件</p>
+                        <button @click="resetHistoryFilters" class="mt-3 text-xs font-bold text-sky-600 hover:underline">點此重置所有搜尋條件</button>
                     </div>
                 </div>
             </div>
@@ -1946,42 +2212,115 @@ window.onerror = function(msg, url, line, col, error) {
                 };
                 const isNoteOpen = (id) => openNotes.value.has(id);
 
-                const openSearchModal = () => {
+                const historyFilters = reactive({
+                    engineer: '全部',
+                    status: '全部',
+                    archived: '全部',
+                    startDate: '',
+                    endDate: '',
+                    sortOrder: 'desc'
+                });
+                const historyDisplayLimit = ref(50);
+
+                const resetHistoryFilters = () => {
                     searchInput.value = '';
                     activeSearchQuery.value = '';
+                    historyFilters.engineer = '全部';
+                    historyFilters.status = '全部';
+                    historyFilters.archived = '全部';
+                    historyFilters.startDate = '';
+                    historyFilters.endDate = '';
+                    historyFilters.sortOrder = 'desc';
+                    historyDisplayLimit.value = 50;
                     openNotes.value.clear();
-                    showSearchModal.value = true;
+                };
+
+                const openHistoryPage = () => {
+                    activeView.value = 'history';
+                    historyDisplayLimit.value = 50;
+                };
+
+                const openSearchModal = () => {
+                    openHistoryPage();
                 };
                 const closeSearchModal = () => { showSearchModal.value = false; };
-                const executeSearch = () => { activeSearchQuery.value = searchInput.value.trim(); };
+                const executeSearch = () => {
+                    activeSearchQuery.value = searchInput.value.trim();
+                    historyDisplayLimit.value = 50;
+                };
 
-                const displayHistoryTickets = computed(() => {
-                    const query = activeSearchQuery.value.toLowerCase();
+                const allMatchedHistoryTickets = computed(() => {
+                    // 支援打字即時搜尋（searchInput 與 activeSearchQuery 同步納入）
+                    const rawQuery = (searchInput.value || activeSearchQuery.value || '').trim().toLowerCase();
+                    const keywords = rawQuery ? rawQuery.split(/\s+/).filter(Boolean) : [];
+
                     let results = [...tickets.value];
-                    if (query) {
+
+                    if (historyFilters.engineer !== '全部') {
+                        if (historyFilters.engineer === '未指派') {
+                            results = results.filter(t => !t.engineer || t.engineer === '未指派');
+                        } else {
+                            results = results.filter(t => t.engineer === historyFilters.engineer);
+                        }
+                    }
+
+                    if (historyFilters.status !== '全部') {
+                        results = results.filter(t => normalizeStatus(t.status) === historyFilters.status);
+                    }
+
+                    if (historyFilters.archived === '未封存') {
+                        results = results.filter(t => !t.isArchived);
+                    } else if (historyFilters.archived === '已封存') {
+                        results = results.filter(t => Boolean(t.isArchived));
+                    }
+
+                    if (historyFilters.startDate) {
+                        results = results.filter(t => (t.reportTime || '') >= historyFilters.startDate);
+                    }
+                    if (historyFilters.endDate) {
+                        results = results.filter(t => (t.reportTime || '') <= historyFilters.endDate);
+                    }
+
+                    if (keywords.length > 0) {
                         results = results.filter(t => {
-                            const cust = String(t.customer || '').toLowerCase();
-                            const mod = String(t.model || '').toLowerCase();
-                            const det = String(t.details || '').toLowerCase();
-                            const eng = String(t.engineer || '').toLowerCase();
-                            return cust.includes(query) || mod.includes(query) || det.includes(query) || eng.includes(query);
+                            const searchableText = [
+                                t.id,
+                                t.customer,
+                                t.model,
+                                t.issue,
+                                t.engineer,
+                                t.details,
+                                t.status,
+                                t.quoteState
+                            ].map(v => String(v || '').toLowerCase()).join(' ');
+                            return keywords.every(kw => searchableText.includes(kw));
                         });
                     }
-                    results.sort((a, b) => new Date(b.reportTime) - new Date(a.reportTime));
-                    return query ? results : results.slice(0, 50);
+
+                    results.sort((a, b) => {
+                        const ta = new Date(a.reportTime || '1970-01-01').getTime();
+                        const tb = new Date(b.reportTime || '1970-01-01').getTime();
+                        return historyFilters.sortOrder === 'asc' ? ta - tb : tb - ta;
+                    });
+                    return results;
+                });
+
+                const displayHistoryTickets = computed(() => {
+                    return allMatchedHistoryTickets.value.slice(0, historyDisplayLimit.value);
                 });
 
                 const searchStats = computed(() => {
-                    if (!activeSearchQuery.value) return null;
-                    const matched = displayHistoryTickets.value;
-                    if (matched.length === 0) return { total: 0, completionRate: 0, avgSla: 0 };
+                    const matched = allMatchedHistoryTickets.value;
+                    if (matched.length === 0) return { total: 0, completionRate: 0, avgSla: 0, withAttachments: 0 };
                     const total = matched.length;
-                    const completedCount = matched.filter(t => ["完修", "取消叫修"].includes(t.status)).length;
+                    const completedCount = matched.filter(t => ["完修", "取消叫修"].includes(normalizeStatus(t.status))).length;
                     const totalSla = matched.reduce((sum, t) => sum + (Number(t.slaDays) || 0), 0);
+                    const withAttachments = matched.filter(t => Array.isArray(t.attachments) && t.attachments.length > 0).length;
                     return {
                         total,
                         completionRate: Math.round((completedCount / total) * 100),
-                        avgSla: Math.round((totalSla / total) * 10) / 10
+                        avgSla: Math.round((totalSla / total) * 10) / 10,
+                        withAttachments
                     };
                 });
 
@@ -2864,7 +3203,8 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const exportSearchResult = () => {
-                    downloadCSV(displayHistoryTickets.value, `歷史複查搜尋結果_${activeSearchQuery.value || '最新'}`);
+                    const q = (searchInput.value || activeSearchQuery.value || '').trim();
+                    downloadCSV(allMatchedHistoryTickets.value, `歷史複查搜尋結果_${q || '篩選清單'}`);
                 };
 
                 const downloadCSV = (exportData, filenamePrefix) => {
@@ -3315,6 +3655,7 @@ window.onerror = function(msg, url, line, col, error) {
                     captureBoard, captureSection, showExportModal, exportDateRange, openExportModal, executeExport, executeExportAll,
                     isExportAuthenticated, exportPasswordInput, verifyExportPassword,
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
+                    historyFilters, historyDisplayLimit, resetHistoryFilters, openHistoryPage, allMatchedHistoryTickets,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     quotePageFilter, quoteSearchQuery, quoteEngineerFilter, filteredQuotingTickets,
