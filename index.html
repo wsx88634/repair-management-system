@@ -68,13 +68,121 @@ window.onerror = function(msg, url, line, col, error) {
 };
 </script>
 
-    <div id="app" v-cloak class="min-h-screen p-4 md:p-6 lg:p-8">
+    <div id="app" v-cloak class="min-h-screen p-4 md:p-6 lg:p-8 transition-all duration-300" :class="isSidebarOpen ? 'lg:pl-80' : ''">
+        <!-- 手機/平板遮罩 (點擊空白處自動隱藏左側資訊欄) -->
+        <div v-if="isSidebarOpen" @click="toggleSidebar" class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-30 lg:hidden transition-opacity"></div>
+
+        <!-- 左側收合狀態下的懸浮展開拉柄 -->
+        <button v-show="!isSidebarOpen" @click="toggleSidebar" title="展開左側資訊欄" class="fixed left-0 top-28 z-30 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-l-0 border-slate-200/90 shadow-lg rounded-r-2xl py-3.5 px-2.5 flex flex-col items-center gap-2 transition-all duration-200 hover:pl-3.5 group">
+            <l-icon name="panel-left-open" class="w-5 h-5 text-blue-600 transition-transform group-hover:scale-110"></l-icon>
+            <span class="text-xs font-bold tracking-widest [writing-mode:vertical-rl]">資訊欄</span>
+        </button>
+
+        <!-- 能隱藏的左側資訊欄 -->
+        <aside class="fixed top-0 left-0 h-screen w-72 bg-white border-r border-slate-200/80 shadow-xl z-40 flex flex-col justify-between transition-transform duration-300 ease-in-out" :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+            <!-- 側欄頂部標題與隱藏按鈕 -->
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-blue-600 text-white p-2 rounded-xl shadow-sm shadow-blue-600/20 flex items-center justify-center">
+                        <l-icon name="layout-dashboard" class="w-4 h-4"></l-icon>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-extrabold text-slate-800 tracking-tight">管理與資訊欄</h2>
+                        <p class="text-[11px] text-slate-400 font-medium">系統設定與功能捷徑</p>
+                    </div>
+                </div>
+                <button @click="toggleSidebar" title="隱藏左側資訊欄" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs transition-all active:scale-95">
+                    <l-icon name="chevrons-left" class="w-4 h-4"></l-icon> 隱藏
+                </button>
+            </div>
+
+            <!-- 側欄中段：即時資訊摘要 + 管理工具按鈕區 -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+                <!-- 即時系統與單據資訊區 -->
+                <div class="space-y-3">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center justify-between">
+                        <span>即時案件概況</span>
+                        <span class="w-2 h-2 rounded-full" :class="isApiConnected ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div class="bg-amber-50/70 border border-amber-200/60 rounded-xl p-3">
+                            <div class="text-[11px] font-bold text-amber-700">待指派派單</div>
+                            <div class="text-xl font-black text-amber-600 mt-0.5">{{ unassignedTickets.length }} <span class="text-xs font-semibold">筆</span></div>
+                        </div>
+                        <div class="bg-blue-50/70 border border-blue-200/60 rounded-xl p-3">
+                            <div class="text-[11px] font-bold text-blue-700">進行中案件</div>
+                            <div class="text-xl font-black text-blue-600 mt-0.5">{{ activeAssignedCount }} <span class="text-xs font-semibold">筆</span></div>
+                        </div>
+                        <div class="bg-purple-50/70 border border-purple-200/60 rounded-xl p-3">
+                            <div class="text-[11px] font-bold text-purple-700">報價追蹤中</div>
+                            <div class="text-xl font-black text-purple-600 mt-0.5">{{ quotingTickets.length }} <span class="text-xs font-semibold">筆</span></div>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                            <div class="text-[11px] font-bold text-slate-600">工程師團隊</div>
+                            <div class="text-xl font-black text-slate-800 mt-0.5">{{ engineers.length }} <span class="text-xs font-semibold">位</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系統管理功能選單 -->
+                <div class="space-y-2.5">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">系統管理工具</div>
+
+                    <button @click="openSearchModal" class="w-full flex items-center justify-between bg-sky-600 hover:bg-sky-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-sky-600/20 active:scale-[0.99] group">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="search" class="w-4 h-4"></l-icon>
+                            <span>歷史複查</span>
+                        </span>
+                        <l-icon name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+
+                    <button @click="openExportModal" class="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-600/20 active:scale-[0.99] group">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="download" class="w-4 h-4"></l-icon>
+                            <span>匯出報表</span>
+                        </span>
+                        <l-icon name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+
+                    <button @click="showEngModal = true" class="w-full flex items-center justify-between bg-slate-800 hover:bg-slate-900 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-sm shadow-slate-800/20 active:scale-[0.99] group">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="users" class="w-4 h-4"></l-icon>
+                            <span>團隊管理</span>
+                        </span>
+                        <l-icon name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+
+                    <button @click="openSettingsModal" class="w-full flex items-center justify-between bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-2xs active:scale-[0.99] group">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="sliders" class="w-4 h-4"></l-icon>
+                            <span>後端 API 設定</span>
+                        </span>
+                        <l-icon name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 側欄底部資訊與快速收合 -->
+            <div class="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+                    <span>資料庫總單據數</span>
+                    <span class="font-bold text-slate-700">{{ tickets.length }} 筆</span>
+                </div>
+                <button @click="toggleSidebar" class="w-full py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors flex items-center justify-center gap-1.5">
+                    <l-icon name="panel-left-close" class="w-3.5 h-3.5"></l-icon> 收合隱藏左側資訊欄
+                </button>
+            </div>
+        </aside>
+
         <div class="max-w-[1400px] mx-auto space-y-6">
             
             <!-- 1. 頂部區塊 -->
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
                 <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
                     <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                        <button @click="toggleSidebar" :title="isSidebarOpen ? '隱藏左側資訊欄' : '展開左側資訊欄'" class="p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95" :class="isSidebarOpen ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'">
+                            <l-icon :name="isSidebarOpen ? 'panel-left-close' : 'panel-left-open'" class="w-5 h-5"></l-icon>
+                        </button>
                         <div class="bg-blue-100 p-2.5 rounded-xl shrink-0 flex items-center justify-center">
                             <l-icon name="wrench" class="text-blue-600 w-6 h-6"></l-icon>
                         </div>
@@ -99,29 +207,13 @@ window.onerror = function(msg, url, line, col, error) {
                         </span>
                     </div>
                     
-                    <!-- 按鈕群 (等距整齊對齊) -->
+                    <!-- 頂部保留按鈕群 (一鍵封存結案、重新整理、擷取看板) -->
                     <div class="flex flex-wrap items-center gap-2 xl:gap-2.5 justify-start xl:justify-end">
-                        <button @click="activeView = activeView === 'kanban' ? 'calendar' : 'kanban'" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap" :class="activeView === 'calendar' ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30 ring-2 ring-purple-400' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'">
-                            <l-icon :name="activeView === 'calendar' ? 'kanban' : 'calendar'" class="w-4 h-4"></l-icon>
-                            {{ activeView === 'calendar' ? '切換看板視角' : '切換行事曆視角' }}
-                        </button>
-                        <button @click="openSettingsModal" class="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm whitespace-nowrap">
-                            <l-icon name="sliders" class="w-4 h-4"></l-icon> 後端 API 設定
-                        </button>
                         <button @click="confirmBatchArchive" class="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-amber-500/20 whitespace-nowrap">
                             <l-icon name="archive" class="w-4 h-4"></l-icon> 一鍵封存結案
                         </button>
                         <button @click="manualRefresh" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm whitespace-nowrap">
                             <l-icon name="refresh-cw" class="w-4 h-4"></l-icon> 重新整理
-                        </button>
-                        <button @click="openSearchModal" class="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-sky-600/20 whitespace-nowrap">
-                            <l-icon name="search" class="w-4 h-4"></l-icon> 歷史複查
-                        </button>
-                        <button @click="showEngModal = true" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-slate-800/20 whitespace-nowrap">
-                            <l-icon name="users" class="w-4 h-4"></l-icon> 團隊管理
-                        </button>
-                        <button @click="openExportModal" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20 whitespace-nowrap">
-                            <l-icon name="download" class="w-4 h-4"></l-icon> 匯出報表
                         </button>
                         <button @click="captureBoard" class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all shadow-sm shadow-indigo-600/20 whitespace-nowrap">
                             <l-icon name="camera" class="w-4 h-4"></l-icon> 擷取看板
@@ -1282,6 +1374,13 @@ window.onerror = function(msg, url, line, col, error) {
 
                 const isUnassignedExpanded = ref(true);
                 const isQuoteExpanded = ref(true);
+                const isSidebarOpen = ref(localStorage.getItem("repair_sidebar_open") !== "false");
+                const toggleSidebar = () => {
+                    isSidebarOpen.value = !isSidebarOpen.value;
+                    try {
+                        localStorage.setItem("repair_sidebar_open", isSidebarOpen.value ? "true" : "false");
+                    } catch (e) {}
+                };
 
                 const formData = reactive({
                     reportDate: new Date().toISOString().split('T')[0],
@@ -1551,6 +1650,10 @@ window.onerror = function(msg, url, line, col, error) {
                     return tickets.value
                         .filter(t => (!t.engineer || t.engineer === '未指派') && !t.isArchived)
                         .sort((a, b) => new Date(a.reportTime) - new Date(b.reportTime));
+                });
+
+                const activeAssignedCount = computed(() => {
+                    return tickets.value.filter(t => t && t.engineer && t.engineer !== '未指派' && !t.isArchived && !['完修', '取消叫修'].includes(normalizeStatus(t.status))).length;
                 });
 
                 const quotingTickets = computed(() => {
@@ -2778,7 +2881,7 @@ window.onerror = function(msg, url, line, col, error) {
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
-                    isUnassignedExpanded, isQuoteExpanded,
+                    isUnassignedExpanded, isQuoteExpanded, isSidebarOpen, toggleSidebar, activeAssignedCount,
                     isPdf, openPdf, viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText, isVideoUrl,
                     activeView, showDayModal, selectedDay, openDayModal, closeDayModal, calendarFilter, calendarDate, calendarYear, calendarMonth, prevMonth, nextMonth, goToday, calendarDays,
