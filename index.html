@@ -105,23 +105,52 @@ window.onerror = function(msg, url, line, col, error) {
                         <span class="w-2 h-2 rounded-full" :class="isApiConnected ? 'bg-emerald-500' : 'bg-amber-500'"></span>
                     </div>
                     <div class="grid grid-cols-2 gap-2.5">
-                        <div class="bg-amber-50/70 border border-amber-200/60 rounded-xl p-3">
+                        <div @click="activeView = 'kanban'" class="bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/60 rounded-xl p-3 cursor-pointer transition-colors" title="點擊切換至主看板">
                             <div class="text-[11px] font-bold text-amber-700">待指派派單</div>
                             <div class="text-xl font-black text-amber-600 mt-0.5">{{ unassignedTickets.length }} <span class="text-xs font-semibold">筆</span></div>
                         </div>
-                        <div class="bg-blue-50/70 border border-blue-200/60 rounded-xl p-3">
+                        <div @click="activeView = 'kanban'" class="bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/60 rounded-xl p-3 cursor-pointer transition-colors" title="點擊切換至主看板">
                             <div class="text-[11px] font-bold text-blue-700">進行中案件</div>
                             <div class="text-xl font-black text-blue-600 mt-0.5">{{ activeAssignedCount }} <span class="text-xs font-semibold">筆</span></div>
                         </div>
-                        <div class="bg-purple-50/70 border border-purple-200/60 rounded-xl p-3">
+                        <div @click="activeView = 'quote'" class="bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/60 rounded-xl p-3 cursor-pointer transition-colors" title="點擊進入報價進度追蹤系統">
                             <div class="text-[11px] font-bold text-purple-700">報價追蹤中</div>
                             <div class="text-xl font-black text-purple-600 mt-0.5">{{ quotingTickets.length }} <span class="text-xs font-semibold">筆</span></div>
                         </div>
-                        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                        <div @click="showEngModal = true" class="bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl p-3 cursor-pointer transition-colors" title="點擊管理工程師團隊">
                             <div class="text-[11px] font-bold text-slate-600">工程師團隊</div>
                             <div class="text-xl font-black text-slate-800 mt-0.5">{{ engineers.length }} <span class="text-xs font-semibold">位</span></div>
                         </div>
                     </div>
+                </div>
+
+                <!-- 頁面視角切換 (主看板 / 報價進度追蹤專頁) -->
+                <div class="space-y-2.5">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">系統頁面切換</div>
+
+                    <button @click="activeView = 'kanban'" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'kanban' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-300' : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="kanban" class="w-4 h-4"></l-icon>
+                            <span>叫修調度主看板</span>
+                        </span>
+                        <span v-if="activeView === 'kanban'" class="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full">目前頁面</span>
+                        <l-icon v-else name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+
+                    <button @click="activeView = 'quote'" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'quote' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 ring-2 ring-purple-300' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200'">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="file-spreadsheet" class="w-4 h-4"></l-icon>
+                            <span>報價進度追蹤</span>
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <span v-if="quoteStats.unquoted > 0" class="text-[11px] font-extrabold px-2 py-0.5 rounded-full" :class="activeView === 'quote' ? 'bg-rose-500 text-white' : 'bg-rose-100 text-rose-700 border border-rose-200'" title="待報價筆數">
+                                未報價 {{ quoteStats.unquoted }}
+                            </span>
+                            <span class="text-xs font-extrabold px-2 py-0.5 rounded-full" :class="activeView === 'quote' ? 'bg-white/20 text-white' : 'bg-purple-200/80 text-purple-800'">
+                                {{ quotingTickets.length }} 筆
+                            </span>
+                        </div>
+                    </button>
                 </div>
 
                 <!-- 系統管理功能選單 -->
@@ -178,7 +207,7 @@ window.onerror = function(msg, url, line, col, error) {
             
             <!-- 1. 頂部區塊 -->
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
-                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4" :class="activeView === 'kanban' ? 'mb-8' : 'mb-0'">
                     <div class="flex items-center gap-3 shrink-0 flex-wrap">
                         <button @click="toggleSidebar" :title="isSidebarOpen ? '隱藏左側資訊欄' : '展開左側資訊欄'" class="p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95" :class="isSidebarOpen ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'">
                             <l-icon :name="isSidebarOpen ? 'panel-left-close' : 'panel-left-open'" class="w-5 h-5"></l-icon>
@@ -222,7 +251,7 @@ window.onerror = function(msg, url, line, col, error) {
                 </div>
                 
                 <!-- 新增派單表單 -->
-                <form @submit.prevent="handleAddTicket" class="flex flex-col gap-5" novalidate>
+                <form v-if="activeView === 'kanban'" @submit.prevent="handleAddTicket" class="flex flex-col gap-5" novalidate>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="label-style">報修日期</label>
@@ -370,10 +399,11 @@ window.onerror = function(msg, url, line, col, error) {
                             <span v-if="quoteStats.agreed > 0" class="text-xs font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full shadow-sm">同意報價: {{ quoteStats.agreed }}</span>
                         </div>
                     </h2>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs text-slate-400 font-semibold hidden md:inline flex items-center gap-1">
-                            <l-icon name="info" class="w-4 h-4 text-purple-500"></l-icon> 移至報價的單子自動出現於此
-                        </span>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <button @click="activeView = 'quote'" class="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-bold shadow-sm shadow-purple-600/20 transition-all active:scale-95">
+                            <l-icon name="external-link" class="w-3.5 h-3.5"></l-icon>
+                            進入報價系統專頁 (可上傳報價單)
+                        </button>
                         <button @click="captureSection('quote-section', '報價進度單據')" class="flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-2.5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors" title="擷取本區塊">
                             <l-icon name="camera" class="w-4 h-4"></l-icon>
                         </button>
@@ -497,6 +527,315 @@ window.onerror = function(msg, url, line, col, error) {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            </template>
+
+            <template v-else-if="activeView === 'quote'">
+            <!-- 報價進度追蹤管理系統專頁 -->
+            <div id="quote-system-page" class="space-y-6">
+                <!-- 隱藏的報價單直接上傳 input -->
+                <input id="quote-direct-file-input" type="file" accept="application/pdf,image/*,.pdf" multiple class="hidden" @change="handleDirectQuoteUpload" />
+
+                <!-- 頂部導覽與統計篩選面板 -->
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-purple-200/80 space-y-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5">
+                        <div class="flex items-center gap-3.5">
+                            <div class="bg-purple-600 text-white p-3 rounded-2xl shadow-md shadow-purple-600/20 flex items-center justify-center">
+                                <l-icon name="file-spreadsheet" class="w-6 h-6"></l-icon>
+                            </div>
+                            <div>
+                                <h2 class="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2.5">
+                                    報價進度追蹤管理系統
+                                    <span class="text-xs font-extrabold bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-full">
+                                        共 {{ quotingTickets.length }} 筆報價案
+                                    </span>
+                                </h2>
+                                <p class="text-xs md:text-sm text-slate-500 font-medium mt-0.5">
+                                    集中管理所有「報價」狀態單據、追蹤客戶確認進度，並支援直接上傳與預覽報價單 (PDF / 圖片)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <button @click="captureSection('quote-system-page', '報價進度追蹤清單')" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-2xs transition-all active:scale-95">
+                                <l-icon name="camera" class="w-4 h-4 text-purple-600"></l-icon> 擷取報價清單
+                            </button>
+                            <button @click="activeView = 'kanban'" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm transition-all active:scale-95">
+                                <l-icon name="arrow-left" class="w-4 h-4"></l-icon> 返回叫修調度主看板
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 四大報價狀態統計與快速篩選卡片 -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                        <div @click="quotePageFilter = '全部'" class="p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between" :class="quotePageFilter === '全部' ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-2 ring-purple-300' : 'bg-purple-50/60 hover:bg-purple-100/70 border-purple-200 text-slate-800'">
+                            <div>
+                                <div class="text-xs font-bold" :class="quotePageFilter === '全部' ? 'text-purple-100' : 'text-purple-700'">全部報價中案件</div>
+                                <div class="text-2xl font-black mt-1">{{ quotingTickets.length }} <span class="text-xs font-bold">筆</span></div>
+                            </div>
+                            <div class="p-2.5 rounded-xl" :class="quotePageFilter === '全部' ? 'bg-white/20 text-white' : 'bg-white text-purple-600 shadow-2xs'">
+                                <l-icon name="layers" class="w-5 h-5"></l-icon>
+                            </div>
+                        </div>
+
+                        <div @click="quotePageFilter = '未報價'" class="p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between" :class="quotePageFilter === '未報價' ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20 ring-2 ring-rose-300' : 'bg-rose-50/70 hover:bg-rose-100/70 border-rose-200 text-slate-800'">
+                            <div>
+                                <div class="text-xs font-bold" :class="quotePageFilter === '未報價' ? 'text-rose-100' : 'text-rose-700'">🔴 未報價 (待上傳報價)</div>
+                                <div class="text-2xl font-black mt-1" :class="quotePageFilter === '未報價' ? 'text-white' : 'text-rose-600'">{{ quoteStats.unquoted }} <span class="text-xs font-bold">筆</span></div>
+                            </div>
+                            <div class="p-2.5 rounded-xl" :class="quotePageFilter === '未報價' ? 'bg-white/20 text-white' : 'bg-white text-rose-600 shadow-2xs'">
+                                <l-icon name="file-warning" class="w-5 h-5"></l-icon>
+                            </div>
+                        </div>
+
+                        <div @click="quotePageFilter = '已報價'" class="p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between" :class="quotePageFilter === '已報價' ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20 ring-2 ring-amber-300' : 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-200 text-slate-800'">
+                            <div>
+                                <div class="text-xs font-bold" :class="quotePageFilter === '已報價' ? 'text-amber-50' : 'text-amber-800'">🟡 已報價 (待客戶確認)</div>
+                                <div class="text-2xl font-black mt-1" :class="quotePageFilter === '已報價' ? 'text-white' : 'text-amber-600'">{{ quoteStats.quoted }} <span class="text-xs font-bold">筆</span></div>
+                            </div>
+                            <div class="p-2.5 rounded-xl" :class="quotePageFilter === '已報價' ? 'bg-white/20 text-white' : 'bg-white text-amber-600 shadow-2xs'">
+                                <l-icon name="clock" class="w-5 h-5"></l-icon>
+                            </div>
+                        </div>
+
+                        <div @click="quotePageFilter = '同意報價'" class="p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between" :class="quotePageFilter === '同意報價' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-300' : 'bg-blue-50/70 hover:bg-blue-100/70 border-blue-200 text-slate-800'">
+                            <div>
+                                <div class="text-xs font-bold" :class="quotePageFilter === '同意報價' ? 'text-blue-100' : 'text-blue-700'">🔵 同意報價 (可派工完修)</div>
+                                <div class="text-2xl font-black mt-1" :class="quotePageFilter === '同意報價' ? 'text-white' : 'text-blue-600'">{{ quoteStats.agreed }} <span class="text-xs font-bold">筆</span></div>
+                            </div>
+                            <div class="p-2.5 rounded-xl" :class="quotePageFilter === '同意報價' ? 'bg-white/20 text-white' : 'bg-white text-blue-600 shadow-2xs'">
+                                <l-icon name="check-circle-2" class="w-5 h-5"></l-icon>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 搜尋與工程師過濾列 -->
+                    <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-1">
+                        <div class="relative flex-1">
+                            <input
+                                v-model="quoteSearchQuery"
+                                placeholder="搜尋報價案件：輸入客戶名稱、單號、機型、工程師或故障問題..."
+                                class="input-style pl-10 py-2.5 text-sm"
+                            />
+                            <l-icon name="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></l-icon>
+                            <button v-if="quoteSearchQuery" @click="quoteSearchQuery = ''" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                                <l-icon name="x-circle" class="w-4 h-4"></l-icon>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2.5">
+                            <div class="relative min-w-[180px]">
+                                <select v-model="quoteEngineerFilter" class="input-style appearance-none pr-8 py-2.5 text-sm font-bold text-slate-700 cursor-pointer">
+                                    <option value="全部">👤 全部負責工程師</option>
+                                    <option v-for="eng in engineers" :key="eng" :value="eng">{{ eng }}</option>
+                                </select>
+                                <l-icon name="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></l-icon>
+                            </div>
+
+                            <button v-if="quotePageFilter !== '全部' || quoteEngineerFilter !== '全部' || quoteSearchQuery" @click="quotePageFilter = '全部'; quoteEngineerFilter = '全部'; quoteSearchQuery = ''" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 whitespace-nowrap transition-colors">
+                                清除篩選
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 報價單據詳細卡片列表 -->
+                <div class="space-y-4">
+                    <div
+                        v-for="ticket in filteredQuotingTickets"
+                        :key="ticket.id"
+                        class="bg-white rounded-2xl shadow-sm border-2 overflow-hidden transition-all hover:shadow-md"
+                        :class="{
+                            'border-rose-300': !ticket.quoteState || ticket.quoteState === '未報價',
+                            'border-amber-300': ticket.quoteState === '已報價',
+                            'border-blue-300': ticket.quoteState === '同意報價'
+                        }"
+                    >
+                        <!-- 卡片頂部狀態與進度切換列 -->
+                        <div class="px-5 py-3.5 border-b flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3"
+                             :class="{
+                                 'bg-rose-50/80 border-rose-200': !ticket.quoteState || ticket.quoteState === '未報價',
+                                 'bg-amber-50/80 border-amber-200': ticket.quoteState === '已報價',
+                                 'bg-blue-50/80 border-blue-200': ticket.quoteState === '同意報價'
+                             }">
+                            <div class="flex items-center flex-wrap gap-2.5">
+                                <span class="text-xs font-black px-2.5 py-1 rounded-lg bg-white border shadow-2xs text-slate-700">
+                                    {{ ticket.id }}
+                                </span>
+                                <span class="text-xs font-bold text-slate-600 flex items-center gap-1 bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200/80">
+                                    <l-icon name="calendar" class="w-3.5 h-3.5 text-slate-400"></l-icon>
+                                    報修日：{{ ticket.reportTime }}
+                                </span>
+                                <span class="text-xs font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 flex items-center gap-1 shadow-2xs">
+                                    <l-icon name="user" class="w-3.5 h-3.5"></l-icon>
+                                    {{ ticket.engineer || '未指派' }}
+                                </span>
+                                <span class="text-xs font-bold text-slate-700 bg-white/90 px-2.5 py-1 rounded-lg border border-slate-200">
+                                    🔧 機型：{{ ticket.model || '未填寫' }}
+                                </span>
+                            </div>
+
+                            <!-- 報價狀態一鍵切換與編輯詳情 -->
+                            <div class="flex items-center flex-wrap gap-2 w-full lg:w-auto justify-end">
+                                <div class="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                                    <button @click="changeQuoteState(ticket, '未報價')" :class="(!ticket.quoteState || ticket.quoteState === '未報價') ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-100'" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap">
+                                        未報價
+                                    </button>
+                                    <button @click="changeQuoteState(ticket, '已報價')" :class="ticket.quoteState === '已報價' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-100'" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap">
+                                        已報價
+                                    </button>
+                                    <button @click="changeQuoteState(ticket, '同意報價')" :class="ticket.quoteState === '同意報價' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-100'" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap">
+                                        同意報價
+                                    </button>
+                                </div>
+
+                                <button @click="openTicketModal(ticket)" class="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-2 rounded-xl text-xs font-bold shadow-2xs transition-colors whitespace-nowrap">
+                                    <l-icon name="edit-3" class="w-3.5 h-3.5 text-blue-600"></l-icon> 編輯詳情/備註
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 卡片主體：左側案件詳情 + 右側報價單上傳與預覽區 -->
+                        <div class="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                            <!-- 左側：客戶資訊、問題狀況與備註 (7 cols) -->
+                            <div class="lg:col-span-7 space-y-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h3 @click="openTicketModal(ticket)" class="text-lg font-black text-slate-800 hover:text-blue-600 cursor-pointer transition-colors">
+                                        {{ ticket.customer }}
+                                    </h3>
+                                </div>
+
+                                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+                                    <div class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                                        <l-icon name="alert-circle" class="w-4 h-4 text-amber-500"></l-icon>
+                                        問題狀況與報修摘要：
+                                        <span class="text-sm font-extrabold text-slate-800">{{ ticket.issue || '未填寫問題狀況' }}</span>
+                                    </div>
+
+                                    <!-- 自動解析聯絡人與電話 -->
+                                    <div v-if="parseDetails(ticket.details).contact || parseDetails(ticket.details).phone || parseDetails(ticket.details).warranty" class="flex flex-wrap items-center gap-4 pt-1 border-t border-slate-200/60 text-xs">
+                                        <div v-if="parseDetails(ticket.details).contact">
+                                            <span class="text-slate-400 font-bold">👤 聯絡人：</span>
+                                            <span class="font-bold text-slate-700">{{ parseDetails(ticket.details).contact }}</span>
+                                        </div>
+                                        <div v-if="parseDetails(ticket.details).phone">
+                                            <span class="text-slate-400 font-bold">📞 電話：</span>
+                                            <a :href="'tel:' + parseDetails(ticket.details).phone" class="font-bold text-blue-600 hover:underline">{{ parseDetails(ticket.details).phone }}</a>
+                                        </div>
+                                        <div v-if="parseDetails(ticket.details).warranty">
+                                            <span class="text-slate-400 font-bold">🛡️ 保固：</span>
+                                            <span class="font-bold text-slate-700">{{ parseDetails(ticket.details).warranty }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="ticket.details" class="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed bg-white p-3 rounded-lg border border-slate-200/60 max-h-[130px] overflow-y-auto custom-scrollbar">
+                                        {{ ticket.details }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 右側：報價單與附件上傳/預覽專區 (5 cols) -->
+                            <div class="lg:col-span-5 bg-purple-50/40 border border-purple-200/80 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="text-xs font-extrabold text-purple-900 flex items-center gap-1.5">
+                                        <l-icon name="file-text" class="w-4 h-4 text-purple-600"></l-icon>
+                                        <span>報價單與附件檔案 ({{ (ticket.attachments || []).length }} / 10)</span>
+                                    </div>
+                                    <button
+                                        @click="triggerQuoteFileUpload(ticket)"
+                                        :disabled="uploadingQuoteTicketId === ticket.id"
+                                        class="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm shadow-purple-600/20 transition-all active:scale-95"
+                                    >
+                                        <l-icon name="upload" class="w-3.5 h-3.5"></l-icon>
+                                        {{ uploadingQuoteTicketId === ticket.id ? '上傳雲端中...' : '上傳報價單 (PDF/圖片)' }}
+                                    </button>
+                                </div>
+
+                                <!-- 上傳進度提示 -->
+                                <div v-if="uploadingQuoteTicketId === ticket.id" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
+                                    <l-icon name="refresh-cw" class="w-4 h-4 animate-spin shrink-0"></l-icon>
+                                    <span class="truncate">{{ uploadProgressText || '正在上傳報價單至 Google Drive...' }}</span>
+                                </div>
+
+                                <!-- 已上傳的報價單/附件清單 -->
+                                <div v-if="ticket.attachments && ticket.attachments.length > 0" class="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+                                    <div
+                                        v-for="(att, idx) in ticket.attachments"
+                                        :key="idx"
+                                        class="bg-white border border-slate-200/90 rounded-xl p-2.5 flex items-center justify-between gap-3 shadow-2xs hover:border-purple-300 transition-colors"
+                                    >
+                                        <!-- PDF 報價單項目 -->
+                                        <div v-if="isPdf(att)" @click="openPdf(att)" class="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group/file">
+                                            <div class="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex flex-col items-center justify-center shrink-0">
+                                                <l-icon name="file-text" class="w-4 h-4"></l-icon>
+                                                <span class="text-[9px] font-black leading-none mt-0.5">PDF</span>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="text-xs font-extrabold text-slate-800 group-hover/file:text-purple-700 truncate">
+                                                    📄 報價單 / PDF 文件 #{{ idx + 1 }}
+                                                </div>
+                                                <div class="text-[11px] text-blue-600 font-semibold flex items-center gap-1 mt-0.5">
+                                                    <l-icon name="external-link" class="w-3 h-3"></l-icon> 點擊開啟新分頁預覽
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 圖片報價單/現場照片項目 -->
+                                        <div v-else @click="viewImage(att, ticket.attachments)" class="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group/file">
+                                            <img :src="att" class="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0" />
+                                            <div class="min-w-0 flex-1">
+                                                <div class="text-xs font-extrabold text-slate-800 group-hover/file:text-purple-700 truncate">
+                                                    🖼️ 報價單圖檔 / 附件 #{{ idx + 1 }}
+                                                </div>
+                                                <div class="text-[11px] text-purple-600 font-semibold flex items-center gap-1 mt-0.5">
+                                                    <l-icon name="zoom-in" class="w-3 h-3"></l-icon> 點擊全螢幕放大檢視
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 操作按鈕 (預覽 + 刪除) -->
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button
+                                                @click="isPdf(att) ? openPdf(att) : viewImage(att, ticket.attachments)"
+                                                class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-colors"
+                                                title="預覽報價單"
+                                            >
+                                                預覽
+                                            </button>
+                                            <button
+                                                @click="removeQuoteAttachment(ticket, idx)"
+                                                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                                title="刪除此檔案"
+                                            >
+                                                <l-icon name="trash-2" class="w-4 h-4"></l-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 尚未上傳檔案時的引導區塊 -->
+                                <div
+                                    v-else
+                                    @click="triggerQuoteFileUpload(ticket)"
+                                    class="border-2 border-dashed border-purple-200 hover:border-purple-400 bg-white/70 hover:bg-white rounded-xl p-4 text-center cursor-pointer transition-all group/drop"
+                                >
+                                    <l-icon name="upload-cloud" class="w-6 h-6 text-purple-400 group-hover/drop:text-purple-600 mx-auto mb-1 transition-colors"></l-icon>
+                                    <div class="text-xs font-bold text-slate-600 group-hover/drop:text-purple-700">尚未上傳報價單檔案</div>
+                                    <div class="text-[11px] text-slate-400 mt-0.5">點擊此處直接選擇 PDF 報價單或圖片上傳</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 無符合條件之報價單時的空狀態 -->
+                    <div v-if="filteredQuotingTickets.length === 0" class="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+                        <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center mx-auto">
+                            <l-icon name="file-spreadsheet" class="w-6 h-6"></l-icon>
+                        </div>
+                        <div class="text-base font-bold text-slate-700">目前沒有符合篩選條件的報價單據</div>
+                        <p class="text-xs text-slate-400">當您在主看板將單據拖曳至「報價」欄位時，單據就會自動出現在此系統中。</p>
                     </div>
                 </div>
             </div>
@@ -1673,6 +2012,34 @@ window.onerror = function(msg, url, line, col, error) {
                     return stats;
                 });
 
+                const quotePageFilter = ref('全部');
+                const quoteSearchQuery = ref('');
+                const quoteEngineerFilter = ref('全部');
+                const uploadingQuoteTicketId = ref(null);
+                const targetQuoteTicket = ref(null);
+
+                const filteredQuotingTickets = computed(() => {
+                    let list = quotingTickets.value;
+                    if (quotePageFilter.value !== '全部') {
+                        list = list.filter(t => (t.quoteState || '未報價') === quotePageFilter.value);
+                    }
+                    if (quoteEngineerFilter.value !== '全部') {
+                        list = list.filter(t => t.engineer === quoteEngineerFilter.value);
+                    }
+                    const q = (quoteSearchQuery.value || '').trim().toLowerCase();
+                    if (q) {
+                        list = list.filter(t =>
+                            (t.customer && String(t.customer).toLowerCase().includes(q)) ||
+                            (t.id && String(t.id).toLowerCase().includes(q)) ||
+                            (t.model && String(t.model).toLowerCase().includes(q)) ||
+                            (t.engineer && String(t.engineer).toLowerCase().includes(q)) ||
+                            (t.issue && String(t.issue).toLowerCase().includes(q)) ||
+                            (t.details && String(t.details).toLowerCase().includes(q))
+                        );
+                    }
+                    return list;
+                });
+
                 const formatLocalDate = (d) => {
                     if (!d) return '';
                     const str = String(d).trim();
@@ -2161,8 +2528,12 @@ window.onerror = function(msg, url, line, col, error) {
                 const changeQuoteState = async (ticket, newState) => {
                     const index = tickets.value.findIndex(t => t.id === ticket.id);
                     if (index !== -1) {
-                        tickets.value[index].quoteState = newState;
-                        await saveData();
+                        const oldState = tickets.value[index].quoteState || '未報價';
+                        if (oldState !== newState) {
+                            tickets.value[index].quoteState = newState;
+                            addTicketLog(tickets.value[index], '報價狀態', `報價進度由「${oldState}」更新為「${newState}」`, '系統/管理者');
+                            await saveData();
+                        }
                     }
                 };
 
@@ -2868,6 +3239,71 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                 };
 
+                const triggerQuoteFileUpload = (ticket) => {
+                    targetQuoteTicket.value = ticket;
+                    const input = document.getElementById('quote-direct-file-input');
+                    if (input) {
+                        input.value = null;
+                        input.click();
+                    }
+                };
+
+                const handleDirectQuoteUpload = async (event) => {
+                    const files = event.target.files;
+                    const ticket = targetQuoteTicket.value;
+                    if (!files || files.length === 0 || !ticket) return;
+                    if (!ticket.attachments) ticket.attachments = [];
+                    if (ticket.attachments.length + files.length > 10) {
+                        confirmDialog.title = "附件數量限制";
+                        confirmDialog.message = "每筆單據最多可夾帶 10 個報價單/照片檔案！若需新增請先刪除舊檔。";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                        event.target.value = null;
+                        return;
+                    }
+                    isLoading.value = true;
+                    isUploadingImage.value = true;
+                    uploadingQuoteTicketId.value = ticket.id;
+                    try {
+                        const uploadedNames = [];
+                        for (let i = 0; i < files.length; i++) {
+                            const isPdfFile = files[i].type === 'application/pdf' || files[i].name.toLowerCase().endsWith('.pdf');
+                            uploadProgressText.value = `正在上傳第 ${i + 1} / ${files.length} 個報價單檔案 (${files[i].name}) 至 Google Drive...`;
+                            const fileUrl = await uploadImageToDrive(files[i]);
+                            ticket.attachments.push(fileUrl);
+                            uploadedNames.push(files[i].name || (isPdfFile ? 'PDF報價單' : '圖片報價單'));
+                        }
+                        addTicketLog(ticket, '附件異動', `於報價系統上傳 ${files.length} 份報價單檔案 (${uploadedNames.join(', ')})`, '系統/管理者');
+                        await saveData();
+                    } catch (err) {
+                        confirmDialog.title = "報價單上傳失敗";
+                        confirmDialog.message = err.message || "上傳報價單至 Google Drive 時發生錯誤。";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                    } finally {
+                        event.target.value = null;
+                        isLoading.value = false;
+                        isUploadingImage.value = false;
+                        uploadingQuoteTicketId.value = null;
+                        uploadProgressText.value = '';
+                    }
+                };
+
+                const removeQuoteAttachment = (ticket, index) => {
+                    confirmDialog.title = "確認移除報價單/附件";
+                    confirmDialog.message = `確定要從「${ticket.customer}」移除第 ${index + 1} 個報價單/附件檔案嗎？`;
+                    confirmDialog.isWarning = true;
+                    confirmDialog.onConfirm = async () => {
+                        if (ticket.attachments && ticket.attachments.length > index) {
+                            ticket.attachments.splice(index, 1);
+                            addTicketLog(ticket, '附件異動', `於報價系統移除第 ${index + 1} 個報價單/附件檔案`, '系統/管理者');
+                            await saveData();
+                        }
+                        confirmDialog.isOpen = false;
+                    };
+                    confirmDialog.isOpen = true;
+                };
+
                 return {
                     statuses, engineers, tickets, formData, getTickets, getStatusColor,
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
@@ -2881,6 +3317,8 @@ window.onerror = function(msg, url, line, col, error) {
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
+                    quotePageFilter, quoteSearchQuery, quoteEngineerFilter, filteredQuotingTickets,
+                    uploadingQuoteTicketId, triggerQuoteFileUpload, handleDirectQuoteUpload, removeQuoteAttachment,
                     isUnassignedExpanded, isQuoteExpanded, isSidebarOpen, toggleSidebar, activeAssignedCount,
                     isPdf, openPdf, viewingImage, imageList, imageIndex, viewImage, prevImage, nextImage, handleTouchStart, handleTouchEnd, handleImageUpload, removeAttachment,
                     isUploadingImage, uploadProgressText, isVideoUrl,
