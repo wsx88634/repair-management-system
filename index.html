@@ -1701,7 +1701,7 @@ window.onerror = function(msg, url, line, col, error) {
                             draggable="true"
                             @dragstart="onEngDragStart(idx)"
                             @dragover.prevent="dragOverEngIndex = idx"
-                            @dragleave="if (dragOverEngIndex === idx) dragOverEngIndex = -1"
+                            @dragleave="dragOverEngIndex === idx && (dragOverEngIndex = -1)"
                             @drop.prevent="onEngDrop(idx)"
                             @dragend="draggingEngIndex = -1; dragOverEngIndex = -1"
                             class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-white rounded-xl border transition-all gap-2"
