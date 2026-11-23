@@ -212,7 +212,7 @@ window.onerror = function(msg, url, line, col, error) {
                                         </div>
                                     </div>
                                     
-                                    <div v-if="ticket.completedDate && ['報價', '完修', '取消叫修'].includes(ticket.status)" class="mt-1.5 text-xs font-bold text-red-600 tracking-wide flex items-center gap-1.5 leading-normal pb-0.5">
+                                    <div v-if="ticket.completedDate && ['完修', '取消叫修'].includes(ticket.status)" class="mt-1.5 text-xs font-bold text-red-600 tracking-wide flex items-center gap-1.5 leading-normal pb-0.5">
                                         <l-icon name="check-circle-2" class="w-3.5 h-3.5 text-red-500"></l-icon>
                                         完成: {{ ticket.completedDate }}
                                     </div>
@@ -491,7 +491,7 @@ window.onerror = function(msg, url, line, col, error) {
                                     </span>
                                     <div class="text-right text-xs text-slate-400 space-y-0.5 font-semibold">
                                         <div>報修: {{ ticket.reportTime }}</div>
-                                        <div v-if="ticket.completedDate" class="text-red-600 font-bold">完工: {{ ticket.completedDate }}</div>
+                                        <div v-if="ticket.completedDate && ['完修', '取消叫修'].includes(normalizeStatus(ticket.status))" class="text-red-600 font-bold">完工: {{ ticket.completedDate }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -600,12 +600,18 @@ window.onerror = function(msg, url, line, col, error) {
                             <input v-model="editData.reportTime" type="date" class="input-style mt-1" />
                         </div>
                         <div>
-                            <label class="label-style text-red-600 font-bold">完成日期</label>
-                            <input v-model="editData.completedDate" type="date" class="input-style mt-1 border-red-200 focus:ring-red-500/15 focus:border-red-500" />
+                            <label class="label-style font-bold" :class="['完修', '取消叫修'].includes(editData.status) ? 'text-red-600' : 'text-slate-400'">完成日期 <span v-if="!['完修', '取消叫修'].includes(editData.status)" class="text-[10px] font-normal">(完修/取消時填寫)</span></label>
+                            <input
+                                v-model="editData.completedDate"
+                                type="date"
+                                :disabled="!['完修', '取消叫修'].includes(editData.status)"
+                                class="input-style mt-1"
+                                :class="['完修', '取消叫修'].includes(editData.status) ? 'border-red-200 focus:ring-red-500/15 focus:border-red-500' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'"
+                            />
                         </div>
                         <div>
                             <label class="label-style">當前狀態</label>
-                            <select v-model="editData.status" class="input-style mt-1 font-semibold text-blue-700 bg-blue-50/50 border-blue-200">
+                            <select v-model="editData.status" @change="handleDateAndStatus(editData, editData.status)" class="input-style mt-1 font-semibold text-blue-700 bg-blue-50/50 border-blue-200">
                                 <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
                             </select>
                         </div>
@@ -1111,7 +1117,8 @@ window.onerror = function(msg, url, line, col, error) {
                     incomingMap.forEach((inc, id) => {
                         const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || "");
-                        let safeCompletedDate = formatLocalDate(inc.completedDate || "");
+                        let safeStatus = normalizeStatus(inc.status || '未執行');
+                        let safeCompletedDate = ['完修', '取消叫修'].includes(safeStatus) ? formatLocalDate(inc.completedDate || "") : "";
 
                         let attachmentsList = [];
                         if (inc.attachments) {
@@ -1128,7 +1135,6 @@ window.onerror = function(msg, url, line, col, error) {
                         attachmentsList = attachmentsList.filter(item => typeof item === 'string' && (item.startsWith('data:image') || item.startsWith('data:application/pdf') || item.startsWith('http://') || item.startsWith('https://'))).slice(0, 10);
 
                         let safeIssue = inc.issue || (local ? local.issue : '') || (inc.details ? inc.details.split('\n')[0].trim() : '');
-                        let safeStatus = normalizeStatus(inc.status || '未執行');
 
                         let safeLogs = [];
                         if (inc.logs && Array.isArray(inc.logs) && inc.logs.length > 0) {
@@ -1404,7 +1410,7 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                     // 平滑向下相容：若無 logs，自動依據單據欄位產生初始節點
                     const generated = [];
-                    if (ticket.completedDate && ['完修', '報價', '取消叫修'].includes(ticket.status)) {
+                    if (ticket.completedDate && ['完修', '取消叫修'].includes(ticket.status)) {
                         generated.push({
                             time: `${ticket.completedDate} 18:00`,
                             action: ticket.status === '完修' ? '完修紀錄' : (ticket.status === '報價' ? '報價狀態' : '案件結案'),
@@ -1430,7 +1436,7 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const handleDateAndStatus = (ticket, newStatus) => {
-                    if (["報價", "完修", "取消叫修"].includes(newStatus)) {
+                    if (["完修", "取消叫修"].includes(newStatus)) {
                         if (!ticket.completedDate) {
                             const d = new Date();
                             ticket.completedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1857,7 +1863,7 @@ window.onerror = function(msg, url, line, col, error) {
                 });
 
                 return {
-                    statuses, engineers, tickets, getTickets, getStatusColor,
+                    statuses, engineers, tickets, getTickets, getStatusColor, normalizeStatus, handleDateAndStatus,
                     isOverdue, onDragStart, onDrop, unassignedTickets,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, allowedEngineersInModal, getDisplayLogs,
                     onEditDetailsInput, onEditIssueInput,

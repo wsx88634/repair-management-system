@@ -509,7 +509,7 @@ window.onerror = function(msg, url, line, col, error) {
                                         </div>
                                     </div>
                                     
-                                    <div v-if="ticket.completedDate && ['報價', '完修', '取消叫修'].includes(ticket.status)" class="mt-1.5 text-xs font-bold text-red-600 tracking-wide flex items-center gap-1.5 leading-normal pb-0.5">
+                                    <div v-if="ticket.completedDate && ['完修', '取消叫修'].includes(ticket.status)" class="mt-1.5 text-xs font-bold text-red-600 tracking-wide flex items-center gap-1.5 leading-normal pb-0.5">
                                         <l-icon name="check-circle-2" class="w-3.5 h-3.5 text-red-500"></l-icon>
                                         完成: {{ ticket.completedDate }}
                                     </div>
@@ -1137,7 +1137,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 </span>
                                 <div class="text-right text-xs text-slate-500 space-y-0.5 font-semibold">
                                     <div>報修: {{ ticket.reportTime }}</div>
-                                    <div v-if="ticket.completedDate" class="text-rose-600 font-bold">完工: {{ ticket.completedDate }}</div>
+                                    <div v-if="ticket.completedDate && ['完修', '取消叫修'].includes(normalizeStatus(ticket.status))" class="text-rose-600 font-bold">完工: {{ ticket.completedDate }}</div>
                                 </div>
                                 <div class="flex items-center gap-1.5 mt-1">
                                     <button @click="openTicketModal(ticket)" class="text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1">
@@ -1368,7 +1368,7 @@ window.onerror = function(msg, url, line, col, error) {
                                     </span>
                                     <div class="text-right text-xs text-slate-400 space-y-0.5 font-semibold">
                                         <div>報修: {{ ticket.reportTime }}</div>
-                                        <div v-if="ticket.completedDate" class="text-red-600 font-bold">完工: {{ ticket.completedDate }}</div>
+                                        <div v-if="ticket.completedDate && ['完修', '取消叫修'].includes(normalizeStatus(ticket.status))" class="text-red-600 font-bold">完工: {{ ticket.completedDate }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -1494,12 +1494,18 @@ window.onerror = function(msg, url, line, col, error) {
                             <input v-model="editData.reportTime" type="date" class="input-style mt-1 font-medium text-slate-700" />
                         </div>
                         <div>
-                            <label class="label-style">完成日期</label>
-                            <input v-model="editData.completedDate" type="date" class="input-style mt-1 font-medium text-slate-700" />
+                            <label class="label-style">完成日期 <span v-if="!['完修', '取消叫修'].includes(editData.status)" class="text-[10px] font-normal text-slate-400">(完修/取消時填寫)</span></label>
+                            <input
+                                v-model="editData.completedDate"
+                                type="date"
+                                :disabled="!['完修', '取消叫修'].includes(editData.status)"
+                                class="input-style mt-1 font-medium"
+                                :class="['完修', '取消叫修'].includes(editData.status) ? 'text-slate-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'"
+                            />
                         </div>
                         <div>
                             <label class="label-style">當前狀態</label>
-                            <select v-model="editData.status" class="input-style mt-1 font-bold text-slate-800">
+                            <select v-model="editData.status" @change="handleDateAndStatus(editData, editData.status)" class="input-style mt-1 font-bold text-slate-800">
                                 <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
                             </select>
                         </div>
@@ -2489,8 +2495,8 @@ window.onerror = function(msg, url, line, col, error) {
                     incomingMap.forEach((inc, id) => {
                         const local = localMap.get(id);
                         let safeReportDate = formatLocalDate(inc.reportTime || (local ? local.reportTime : ''));
-                        let safeCompletedDate = formatLocalDate(inc.completedDate || (local ? local.completedDate : '') || '');
                         let safeStatus = normalizeStatus(inc.status || (local ? local.status : "未執行"));
+                        let safeCompletedDate = ['完修', '取消叫修'].includes(safeStatus) ? formatLocalDate(inc.completedDate || (local ? local.completedDate : '') || '') : '';
 
                         // 僅當本地正在即時儲存中、或當前彈窗正在開啟編輯此單時，保留本地剛打的字
                         let finalEngineer = inc.engineer || '未指派';
@@ -2923,7 +2929,7 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const handleDateAndStatus = (ticket, newStatus) => {
-                    if (["報價", "完修", "取消叫修"].includes(newStatus)) {
+                    if (["完修", "取消叫修"].includes(newStatus)) {
                         if (!ticket.completedDate) {
                             const d = new Date();
                             ticket.completedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2966,7 +2972,7 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                     // 平滑向下相容：若無 logs，自動依據單據欄位產生初始節點
                     const generated = [];
-                    if (ticket.completedDate && ['完修', '報價', '取消叫修'].includes(ticket.status)) {
+                    if (ticket.completedDate && ['完修', '取消叫修'].includes(ticket.status)) {
                         generated.push({
                             time: `${ticket.completedDate} 18:00`,
                             action: ticket.status === '完修' ? '完修紀錄' : (ticket.status === '報價' ? '報價狀態' : '案件結案'),
@@ -3303,7 +3309,7 @@ window.onerror = function(msg, url, line, col, error) {
                         return [
                             escapeCSV(t.id),
                             escapeCSV(t.reportTime),
-                            escapeCSV(t.completedDate || ''),
+                            escapeCSV(['完修', '取消叫修'].includes(normalizeStatus(t.status)) ? (t.completedDate || '') : ''),
                             escapeCSV(t.status),
                             escapeCSV(t.quoteState || ''),
                             escapeCSV(t.isArchived ? '已封存' : '處理中'),
@@ -3722,7 +3728,7 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 return {
-                    statuses, engineers, tickets, formData, getTickets, getStatusColor,
+                    statuses, engineers, tickets, formData, getTickets, getStatusColor, normalizeStatus, handleDateAndStatus,
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
                     onFormDetailsInput, onFormIssueInput, onEditDetailsInput, onEditIssueInput,
                     showEngModal, newEngName, editEngIndex, editEngName, addEngineer, startEditEngineer, saveEngineerEdit, confirmDeleteEngineer,
