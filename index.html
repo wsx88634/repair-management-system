@@ -17,6 +17,9 @@
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
+    <!-- Chart.js 工程師績效分析圖表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
     <style type="text/tailwindcss">
         @layer utilities {
             .input-style {
@@ -161,6 +164,15 @@ window.onerror = function(msg, url, line, col, error) {
                         <span v-else class="text-xs font-extrabold px-2 py-0.5 rounded-full bg-sky-200/80 text-sky-800">
                             {{ tickets.length }} 筆
                         </span>
+                    </button>
+
+                    <button @click="openAnalyticsPage" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'analytics' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 ring-2 ring-indigo-300' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="bar-chart-3" class="w-4 h-4"></l-icon>
+                            <span>工程師績效分析</span>
+                        </span>
+                        <span v-if="activeView === 'analytics'" class="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full">目前頁面</span>
+                        <l-icon v-else name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
                     </button>
                 </div>
 
@@ -1202,6 +1214,305 @@ window.onerror = function(msg, url, line, col, error) {
             </div>
             </template>
 
+            <template v-else-if="activeView === 'analytics'">
+            <!-- 工程師績效與工作量分析中心專頁 -->
+            <div id="analytics-system-page" class="space-y-6">
+                <!-- 頂部控制與篩選面板 -->
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-indigo-200/80 space-y-5">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-100 pb-5">
+                        <div class="flex items-center gap-3.5">
+                            <div class="bg-indigo-600 text-white p-3 rounded-2xl shadow-md shadow-indigo-600/20 flex items-center justify-center">
+                                <l-icon name="bar-chart-3" class="w-6 h-6"></l-icon>
+                            </div>
+                            <div>
+                                <h2 class="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2.5 flex-wrap">
+                                    工程師績效與工作量分析中心
+                                    <span class="text-xs font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-full">
+                                        分析範圍：{{ analyticsTickets.length }} 筆案件
+                                    </span>
+                                </h2>
+                                <p class="text-xs md:text-sm text-slate-500 font-medium mt-0.5">
+                                    提供主管評估每日進件消化趨勢、各工程師工作量負荷、完修效率、時效達標率與機型故障熱點
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button @click="exportAnalyticsCSV" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm shadow-emerald-600/20 transition-all active:scale-95">
+                                <l-icon name="download" class="w-4 h-4"></l-icon> 匯出績效總表 (CSV)
+                            </button>
+                            <button @click="captureSection('analytics-system-page', '工程師績效分析報表')" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-2xs transition-all active:scale-95">
+                                <l-icon name="camera" class="w-4 h-4 text-indigo-600"></l-icon> 擷取分析圖表
+                            </button>
+                            <button @click="activeView = 'kanban'" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold shadow-sm transition-all active:scale-95">
+                                <l-icon name="arrow-left" class="w-4 h-4"></l-icon> 返回主看板
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 時間區間快選 + 自訂日期 + 對象切換 -->
+                    <div class="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                        <div class="flex items-center flex-wrap gap-1.5">
+                            <span class="text-xs font-bold text-slate-500 mr-1">時間快選：</span>
+                            <button @click="setAnalyticsPreset('7d')" :class="analyticsPreset === '7d' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">近 7 天</button>
+                            <button @click="setAnalyticsPreset('30d')" :class="analyticsPreset === '30d' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">近 30 天</button>
+                            <button @click="setAnalyticsPreset('thisMonth')" :class="analyticsPreset === 'thisMonth' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">本月</button>
+                            <button @click="setAnalyticsPreset('lastMonth')" :class="analyticsPreset === 'lastMonth' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">上月</button>
+                            <button @click="setAnalyticsPreset('quarter')" :class="analyticsPreset === 'quarter' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">近 90 天</button>
+                            <button @click="setAnalyticsPreset('all')" :class="analyticsPreset === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all">全部歷史</button>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <div class="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                                <input type="date" v-model="analyticsRange.start" @change="analyticsPreset = 'custom'" class="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+                                <span class="text-slate-400 text-xs font-bold">~</span>
+                                <input type="date" v-model="analyticsRange.end" @change="analyticsPreset = 'custom'" class="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+                            </div>
+
+                            <div class="relative min-w-[180px]">
+                                <select v-model="analyticsEngineer" class="input-style py-2 text-xs md:text-sm font-bold appearance-none pr-8 cursor-pointer bg-white">
+                                    <option value="全部">👥 全體團隊總覽</option>
+                                    <option v-for="eng in engineers" :key="eng" :value="eng">👤 {{ eng }}</option>
+                                </select>
+                                <l-icon name="chevron-down" class="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></l-icon>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6 大核心 KPI 績效卡片 -->
+                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+                        <div class="bg-indigo-50/70 border border-indigo-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-indigo-700 flex items-center gap-1">
+                                <l-icon name="layers" class="w-3.5 h-3.5"></l-icon> 區間總案件數
+                            </div>
+                            <div class="text-2xl font-black text-indigo-950 mt-1">{{ analyticsKPI.total }} <span class="text-xs font-bold">筆</span></div>
+                            <div class="text-[11px] font-semibold text-indigo-600 mt-1">日均進件 {{ analyticsKPI.dailyAvgCreated }} 筆/天</div>
+                        </div>
+
+                        <div class="bg-emerald-50/70 border border-emerald-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                                <l-icon name="check-circle-2" class="w-3.5 h-3.5"></l-icon> 已完修案件
+                            </div>
+                            <div class="text-2xl font-black text-emerald-950 mt-1">{{ analyticsKPI.completed }} <span class="text-xs font-bold">筆</span></div>
+                            <div class="text-[11px] font-semibold text-emerald-700 mt-1">完修率 {{ analyticsKPI.completionRate }}% · 日均 {{ analyticsKPI.dailyAvgCompleted }} 筆</div>
+                        </div>
+
+                        <div class="bg-sky-50/70 border border-sky-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-sky-700 flex items-center gap-1">
+                                <l-icon name="clock" class="w-3.5 h-3.5"></l-icon> 平均完修天數
+                            </div>
+                            <div class="text-2xl font-black text-sky-950 mt-1">{{ analyticsKPI.avgRepairDays }} <span class="text-xs font-bold">天</span></div>
+                            <div class="text-[11px] font-semibold text-sky-700 mt-1">報修日至完修日均值</div>
+                        </div>
+
+                        <div class="bg-amber-50/70 border border-amber-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-amber-800 flex items-center gap-1">
+                                <l-icon name="target" class="w-3.5 h-3.5"></l-icon> SLA 時效達標率
+                            </div>
+                            <div class="text-2xl font-black text-amber-950 mt-1">{{ analyticsKPI.slaHitRate }}<span class="text-sm font-bold">%</span></div>
+                            <div class="text-[11px] font-semibold text-amber-700 mt-1">時效內準時完修比例</div>
+                        </div>
+
+                        <div class="bg-purple-50/70 border border-purple-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-purple-700 flex items-center gap-1">
+                                <l-icon name="zap" class="w-3.5 h-3.5"></l-icon> 當日完修率
+                            </div>
+                            <div class="text-2xl font-black text-purple-950 mt-1">{{ analyticsKPI.sameDayRate }}<span class="text-sm font-bold">%</span></div>
+                            <div class="text-[11px] font-semibold text-purple-700 mt-1">照片回報完整度 {{ analyticsKPI.attachmentRate }}%</div>
+                        </div>
+
+                        <div class="bg-rose-50/70 border border-rose-200/80 p-4 rounded-2xl">
+                            <div class="text-xs font-bold text-rose-700 flex items-center gap-1">
+                                <l-icon name="alert-triangle" class="w-3.5 h-3.5"></l-icon> 即時在手未結
+                            </div>
+                            <div class="text-2xl font-black text-rose-950 mt-1">{{ analyticsKPI.currentActive }} <span class="text-xs font-bold">筆</span></div>
+                            <div class="text-[11px] font-bold text-rose-600 mt-1">其中已超時 {{ analyticsKPI.currentOverdue }} 筆</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 視覺化圖表分析區 (2x2 網格) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 圖表 1：每日進件 vs 完修趨勢 -->
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                                    每日案件量趨勢（進件 vs 完修）
+                                </h3>
+                                <p class="text-xs text-slate-400 font-medium mt-0.5">觀察每日叫修高峰與消化速度是否平衡</p>
+                            </div>
+                            <span class="text-[11px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">{{ analyticsRangeDays }} 天區間</span>
+                        </div>
+                        <div class="relative h-[290px] w-full">
+                            <canvas id="chart-daily-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 圖表 2：各工程師工作量與狀態分佈 -->
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    工程師案件量與狀態分佈
+                                </h3>
+                                <p class="text-xs text-slate-400 font-medium mt-0.5">橫向對比各工程師接案負荷與結案狀態構成</p>
+                            </div>
+                            <span class="text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg">堆疊長條圖</span>
+                        </div>
+                        <div class="relative h-[290px] w-full">
+                            <canvas id="chart-engineer-workload"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 圖表 3：工程師平均完修天數 vs 時效達標率 -->
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                    維修效率對比（平均完修天數 ＆ 時效達標率）
+                                </h3>
+                                <p class="text-xs text-slate-400 font-medium mt-0.5">長條為平均完修天數（越低越快），折線為 SLA 達標率（越高越好）</p>
+                            </div>
+                            <span class="text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-lg">效率雙軸圖</span>
+                        </div>
+                        <div class="relative h-[290px] w-full">
+                            <canvas id="chart-engineer-efficiency"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 圖表 4：設備機型維修排行 Top 10 -->
+                    <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                                    設備機型維修排行 Top 10
+                                </h3>
+                                <p class="text-xs text-slate-400 font-medium mt-0.5">掌握高故障率設備機型與工程師專長分佈</p>
+                            </div>
+                            <span class="text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg">{{ analyticsEngineer === '全部' ? '全體團隊' : analyticsEngineer }}</span>
+                        </div>
+                        <div class="relative h-[290px] w-full">
+                            <canvas id="chart-top-models"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 每位工程師綜合績效評核總表 -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                                <l-icon name="award" class="w-5 h-5 text-indigo-600"></l-icon>
+                                工程師綜合績效評核總表
+                            </h3>
+                            <p class="text-xs text-slate-500 font-medium mt-0.5">點擊欄位標題可切換排序；點擊工程師姓名可單獨檢視該員圖表與機型分佈</p>
+                        </div>
+                        <span v-if="analyticsEngineer !== '全部'" @click="analyticsEngineer = '全部'" class="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
+                            目前檢視：{{ analyticsEngineer }}（點擊切回全體團隊）
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse min-w-[960px]">
+                            <thead>
+                                <tr class="bg-slate-50 border-y border-slate-200 text-xs font-extrabold text-slate-600">
+                                    <th class="py-3 px-3 rounded-tl-xl">#</th>
+                                    <th class="py-3 px-3">工程師姓名</th>
+                                    <th @click="sortAnalyticsTable('total')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">區間接案 {{ analyticsSortKey === 'total' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('completed')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">已完修 {{ analyticsSortKey === 'completed' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('dailyCompleted')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">日均完修 {{ analyticsSortKey === 'dailyCompleted' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('completionRate')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">完修率 {{ analyticsSortKey === 'completionRate' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('avgRepairDays')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">平均完修(天) {{ analyticsSortKey === 'avgRepairDays' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('slaHitRate')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">時效達標率 {{ analyticsSortKey === 'slaHitRate' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('sameDayRate')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">當日完修率 {{ analyticsSortKey === 'sameDayRate' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('quoting')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">報價中 {{ analyticsSortKey === 'quoting' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('currentActive')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">在手未結 {{ analyticsSortKey === 'currentActive' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('currentOverdue')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none">目前超時 {{ analyticsSortKey === 'currentOverdue' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                    <th @click="sortAnalyticsTable('attachmentRate')" class="py-3 px-3 text-right cursor-pointer hover:text-indigo-600 select-none rounded-tr-xl">附件回報率 {{ analyticsSortKey === 'attachmentRate' ? (analyticsSortDir === 'desc' ? '▼' : '▲') : '' }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-sm">
+                                <tr
+                                    v-for="(row, idx) in engineerPerformanceRows"
+                                    :key="row.engineer"
+                                    @click="toggleAnalyticsEngineer(row.engineer)"
+                                    class="transition-colors cursor-pointer"
+                                    :class="analyticsEngineer === row.engineer ? 'bg-indigo-50/90 font-bold' : 'hover:bg-slate-50'"
+                                >
+                                    <td class="py-3 px-3 text-xs font-black text-slate-400">{{ idx + 1 }}</td>
+                                    <td class="py-3 px-3 font-extrabold text-slate-800 flex items-center gap-2">
+                                        <span>{{ row.engineer }}</span>
+                                        <span v-if="analyticsEngineer === row.engineer" class="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded">已選取</span>
+                                    </td>
+                                    <td class="py-3 px-3 text-right font-bold text-slate-700">{{ row.total }}</td>
+                                    <td class="py-3 px-3 text-right font-extrabold text-emerald-700">{{ row.completed }}</td>
+                                    <td class="py-3 px-3 text-right font-semibold text-slate-600">{{ row.dailyCompleted }}</td>
+                                    <td class="py-3 px-3 text-right">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-extrabold" :class="row.completionRate >= 80 ? 'bg-emerald-100 text-emerald-700' : (row.completionRate >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')">
+                                            {{ row.completionRate }}%
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-right font-bold text-sky-700">{{ row.avgRepairDays !== null ? row.avgRepairDays + ' 天' : '---' }}</td>
+                                    <td class="py-3 px-3 text-right">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-extrabold" :class="row.slaHitRate >= 85 ? 'bg-blue-100 text-blue-700' : (row.slaHitRate >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')">
+                                            {{ row.slaHitRate }}%
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-right font-semibold text-purple-700">{{ row.sameDayRate }}%</td>
+                                    <td class="py-3 px-3 text-right font-bold text-purple-600">{{ row.quoting }}</td>
+                                    <td class="py-3 px-3 text-right font-bold text-slate-700">{{ row.currentActive }}</td>
+                                    <td class="py-3 px-3 text-right">
+                                        <span v-if="row.currentOverdue > 0" class="px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-700 border border-rose-200">{{ row.currentOverdue }} 筆</span>
+                                        <span v-else class="text-xs font-bold text-emerald-600">0</span>
+                                    </td>
+                                    <td class="py-3 px-3 text-right font-semibold text-slate-600">{{ row.attachmentRate }}%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 進階洞見：區間內同客戶重複叫修警示 -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-200/80 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                <l-icon name="repeat" class="w-5 h-5 text-amber-600"></l-icon>
+                                重複叫修熱點警示（區間內同客戶叫修 ≥ 2 次）
+                            </h3>
+                            <p class="text-xs text-slate-500 font-medium mt-0.5">協助主管快速辨識高頻報修客戶或老舊設備，點擊可直接跳轉歷史複查檢視完整紀錄</p>
+                        </div>
+                        <span class="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">共 {{ repeatRepairHotspots.length }} 組熱點</span>
+                    </div>
+
+                    <div v-if="repeatRepairHotspots.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div
+                            v-for="item in repeatRepairHotspots"
+                            :key="item.customer + '_' + item.model"
+                            @click="jumpToHistoryWithCustomer(item.customer)"
+                            class="p-3.5 rounded-xl bg-amber-50/50 hover:bg-amber-100/70 border border-amber-200/80 cursor-pointer transition-all flex items-center justify-between gap-3 group"
+                        >
+                            <div class="min-w-0 flex-1">
+                                <div class="font-extrabold text-sm text-slate-800 truncate group-hover:text-amber-900">{{ item.customer }}</div>
+                                <div class="text-xs text-slate-500 truncate mt-0.5">機型：{{ item.model || '未填寫' }} · 最近：{{ item.latestDate }}</div>
+                            </div>
+                            <span class="shrink-0 text-xs font-black bg-amber-500 text-white px-2.5 py-1 rounded-full shadow-2xs">
+                                {{ item.count }} 次
+                            </span>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-8 text-xs font-bold text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        目前篩選區間內無重複報修 ≥ 2 次的客戶熱點
+                    </div>
+                </div>
+            </div>
+            </template>
+
         </div>
 
         <!-- 歷史複查 Modal -->
@@ -1963,7 +2274,7 @@ window.onerror = function(msg, url, line, col, error) {
 
     <!-- Vue 3 前端核心 Script -->
     <script>
-        const { createApp, ref, reactive, computed, onMounted } = Vue;
+        const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
         const App = {
             setup() {
@@ -3727,6 +4038,460 @@ window.onerror = function(msg, url, line, col, error) {
                     confirmDialog.isOpen = true;
                 };
 
+                // ==========================================
+                // 工程師績效與工作量分析中心 (Analytics View)
+                // ==========================================
+                const toISODateStr = (d) => {
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                };
+
+                const analyticsPreset = ref('30d');
+                const analyticsEngineer = ref('全部');
+                const analyticsSortKey = ref('completed');
+                const analyticsSortDir = ref('desc');
+                const analyticsRange = reactive({ start: '', end: '' });
+
+                const setAnalyticsPreset = (preset) => {
+                    analyticsPreset.value = preset;
+                    const today = new Date();
+                    const endStr = toISODateStr(today);
+                    if (preset === '7d') {
+                        const s = new Date(today); s.setDate(s.getDate() - 6);
+                        analyticsRange.start = toISODateStr(s);
+                        analyticsRange.end = endStr;
+                    } else if (preset === '30d') {
+                        const s = new Date(today); s.setDate(s.getDate() - 29);
+                        analyticsRange.start = toISODateStr(s);
+                        analyticsRange.end = endStr;
+                    } else if (preset === 'thisMonth') {
+                        const s = new Date(today.getFullYear(), today.getMonth(), 1);
+                        analyticsRange.start = toISODateStr(s);
+                        analyticsRange.end = endStr;
+                    } else if (preset === 'lastMonth') {
+                        const s = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                        const e = new Date(today.getFullYear(), today.getMonth(), 0);
+                        analyticsRange.start = toISODateStr(s);
+                        analyticsRange.end = toISODateStr(e);
+                    } else if (preset === 'quarter') {
+                        const s = new Date(today); s.setDate(s.getDate() - 89);
+                        analyticsRange.start = toISODateStr(s);
+                        analyticsRange.end = endStr;
+                    } else if (preset === 'all') {
+                        analyticsRange.start = '';
+                        analyticsRange.end = '';
+                    }
+                };
+                setAnalyticsPreset('30d');
+
+                const openAnalyticsPage = () => {
+                    activeView.value = 'analytics';
+                    nextTick(() => renderAnalyticsCharts());
+                };
+
+                const toggleAnalyticsEngineer = (engName) => {
+                    analyticsEngineer.value = analyticsEngineer.value === engName ? '全部' : engName;
+                };
+
+                const sortAnalyticsTable = (key) => {
+                    if (analyticsSortKey.value === key) {
+                        analyticsSortDir.value = analyticsSortDir.value === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        analyticsSortKey.value = key;
+                        analyticsSortDir.value = 'desc';
+                    }
+                };
+
+                const jumpToHistoryWithCustomer = (customerName) => {
+                    resetHistoryFilters();
+                    searchInput.value = customerName || '';
+                    activeSearchQuery.value = customerName || '';
+                    activeView.value = 'history';
+                };
+
+                const calcRepairDays = (t) => {
+                    if (!t || !t.reportTime || !t.completedDate) return null;
+                    const s = new Date(t.reportTime);
+                    const e = new Date(t.completedDate);
+                    if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
+                    const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+                    return diff < 0 ? 0 : diff;
+                };
+
+                const analyticsRangeTicketsAllEng = computed(() => {
+                    return tickets.value.filter(t => {
+                        if (!t || !t.id) return false;
+                        const d = t.reportTime || '';
+                        if (analyticsRange.start && d < analyticsRange.start) return false;
+                        if (analyticsRange.end && d > analyticsRange.end) return false;
+                        return true;
+                    });
+                });
+
+                const analyticsTickets = computed(() => {
+                    if (analyticsEngineer.value === '全部') return analyticsRangeTicketsAllEng.value;
+                    return analyticsRangeTicketsAllEng.value.filter(t => t.engineer === analyticsEngineer.value);
+                });
+
+                const analyticsRangeDays = computed(() => {
+                    let startStr = analyticsRange.start;
+                    let endStr = analyticsRange.end;
+                    if (!startStr || !endStr) {
+                        const dates = analyticsTickets.value.map(t => t.reportTime).filter(Boolean).sort();
+                        if (dates.length === 0) return 1;
+                        startStr = startStr || dates[0];
+                        endStr = endStr || dates[dates.length - 1];
+                    }
+                    const s = new Date(startStr);
+                    const e = new Date(endStr);
+                    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
+                    const days = Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    return days > 0 ? days : 1;
+                });
+
+                const analyticsKPI = computed(() => {
+                    const list = analyticsTickets.value;
+                    const total = list.length;
+                    const completedList = list.filter(t => normalizeStatus(t.status) === '完修');
+                    const completed = completedList.length;
+                    const days = analyticsRangeDays.value;
+
+                    let repairDaysSum = 0;
+                    let repairDaysCount = 0;
+                    let slaHitCount = 0;
+                    let slaEvalCount = 0;
+                    let sameDayCount = 0;
+                    let attachCompletedCount = 0;
+
+                    completedList.forEach(t => {
+                        const rd = calcRepairDays(t);
+                        if (rd !== null) {
+                            repairDaysSum += rd;
+                            repairDaysCount++;
+                            if (rd === 0) sameDayCount++;
+                            const sla = Number(t.slaDays) || 3;
+                            slaEvalCount++;
+                            if (rd <= sla) slaHitCount++;
+                        }
+                        if (Array.isArray(t.attachments) && t.attachments.length > 0) {
+                            attachCompletedCount++;
+                        }
+                    });
+
+                    // 即時在手未結案（不受報修日期區間限制，反映當下真實工作負載）
+                    const livePool = analyticsEngineer.value === '全部'
+                        ? tickets.value
+                        : tickets.value.filter(t => t.engineer === analyticsEngineer.value);
+                    const liveActiveList = livePool.filter(t => !t.isArchived && ['未執行', '未完成 / 另約時間'].includes(normalizeStatus(t.status)));
+                    const liveOverdueCount = liveActiveList.filter(t => isOverdue(t)).length;
+
+                    return {
+                        total,
+                        completed,
+                        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+                        dailyAvgCreated: Math.round((total / days) * 10) / 10,
+                        dailyAvgCompleted: Math.round((completed / days) * 10) / 10,
+                        avgRepairDays: repairDaysCount > 0 ? Math.round((repairDaysSum / repairDaysCount) * 10) / 10 : 0,
+                        slaHitRate: slaEvalCount > 0 ? Math.round((slaHitCount / slaEvalCount) * 100) : 0,
+                        sameDayRate: repairDaysCount > 0 ? Math.round((sameDayCount / repairDaysCount) * 100) : 0,
+                        attachmentRate: completed > 0 ? Math.round((attachCompletedCount / completed) * 100) : 0,
+                        currentActive: liveActiveList.length,
+                        currentOverdue: liveOverdueCount
+                    };
+                });
+
+                const engineerPerformanceRows = computed(() => {
+                    const days = analyticsRangeDays.value;
+                    const rows = engineers.value.map(eng => {
+                        const rangeList = analyticsRangeTicketsAllEng.value.filter(t => t.engineer === eng);
+                        const total = rangeList.length;
+                        const completedList = rangeList.filter(t => normalizeStatus(t.status) === '完修');
+                        const completed = completedList.length;
+                        const quoting = rangeList.filter(t => normalizeStatus(t.status) === '報價').length;
+                        const pending = rangeList.filter(t => ['未執行', '未完成 / 另約時間'].includes(normalizeStatus(t.status))).length;
+                        const cancelled = rangeList.filter(t => normalizeStatus(t.status) === '取消叫修').length;
+
+                        let rdSum = 0, rdCnt = 0, slaHit = 0, slaCnt = 0, sameDay = 0, attCnt = 0;
+                        completedList.forEach(t => {
+                            const rd = calcRepairDays(t);
+                            if (rd !== null) {
+                                rdSum += rd;
+                                rdCnt++;
+                                if (rd === 0) sameDay++;
+                                const sla = Number(t.slaDays) || 3;
+                                slaCnt++;
+                                if (rd <= sla) slaHit++;
+                            }
+                            if (Array.isArray(t.attachments) && t.attachments.length > 0) attCnt++;
+                        });
+
+                        const liveActive = tickets.value.filter(t => t.engineer === eng && !t.isArchived && ['未執行', '未完成 / 另約時間'].includes(normalizeStatus(t.status)));
+                        const liveOverdue = liveActive.filter(t => isOverdue(t)).length;
+
+                        return {
+                            engineer: eng,
+                            total,
+                            completed,
+                            quoting,
+                            pending,
+                            cancelled,
+                            dailyCompleted: Math.round((completed / days) * 100) / 100,
+                            completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+                            avgRepairDays: rdCnt > 0 ? Math.round((rdSum / rdCnt) * 10) / 10 : null,
+                            slaHitRate: slaCnt > 0 ? Math.round((slaHit / slaCnt) * 100) : 0,
+                            sameDayRate: rdCnt > 0 ? Math.round((sameDay / rdCnt) * 100) : 0,
+                            currentActive: liveActive.length,
+                            currentOverdue: liveOverdue,
+                            attachmentRate: completed > 0 ? Math.round((attCnt / completed) * 100) : 0
+                        };
+                    });
+
+                    const key = analyticsSortKey.value;
+                    const dir = analyticsSortDir.value === 'asc' ? 1 : -1;
+                    return rows.sort((a, b) => {
+                        const va = a[key] === null ? (dir === 1 ? 9999 : -1) : a[key];
+                        const vb = b[key] === null ? (dir === 1 ? 9999 : -1) : b[key];
+                        return (va - vb) * dir;
+                    });
+                });
+
+                const repeatRepairHotspots = computed(() => {
+                    const map = new Map();
+                    analyticsTickets.value.forEach(t => {
+                        const cust = String(t.customer || '').trim();
+                        if (!cust) return;
+                        const mod = String(t.model || '').trim();
+                        const key = `${cust}|||${mod}`;
+                        if (!map.has(key)) {
+                            map.set(key, { customer: cust, model: mod, count: 0, latestDate: '' });
+                        }
+                        const entry = map.get(key);
+                        entry.count++;
+                        if ((t.reportTime || '') > entry.latestDate) entry.latestDate = t.reportTime || '';
+                    });
+                    return Array.from(map.values())
+                        .filter(x => x.count >= 2)
+                        .sort((a, b) => b.count - a.count || b.latestDate.localeCompare(a.latestDate))
+                        .slice(0, 12);
+                });
+
+                const exportAnalyticsCSV = () => {
+                    const headers = ['工程師姓名', '區間接案數', '已完修數', '日均完修', '完修率(%)', '平均完修天數', 'SLA時效達標率(%)', '當日完修率(%)', '報價中', '目前在手未結', '目前超時數', '附件回報率(%)'];
+                    const esc = (v) => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+                    const rows = engineerPerformanceRows.value.map(r => [
+                        r.engineer, r.total, r.completed, r.dailyCompleted, r.completionRate,
+                        r.avgRepairDays !== null ? r.avgRepairDays : '', r.slaHitRate, r.sameDayRate,
+                        r.quoting, r.currentActive, r.currentOverdue, r.attachmentRate
+                    ].map(esc).join(','));
+                    const csv = [headers.map(esc).join(','), ...rows].join('\r\n');
+                    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `工程師績效分析總表_${analyticsRange.start || 'ALL'}_${analyticsRange.end || 'TODAY'}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+
+                const chartInstances = {};
+                const destroyChart = (id) => {
+                    if (chartInstances[id]) {
+                        try { chartInstances[id].destroy(); } catch (e) {}
+                        delete chartInstances[id];
+                    }
+                };
+
+                const renderAnalyticsCharts = () => {
+                    if (activeView.value !== 'analytics' || typeof window.Chart === 'undefined') return;
+
+                    // 1. 每日進件 vs 完修趨勢折線圖
+                    const c1 = document.getElementById('chart-daily-trend');
+                    if (c1) {
+                        destroyChart('c1');
+                        const createdByDay = {};
+                        const completedByDay = {};
+                        const dateSet = new Set();
+
+                        analyticsTickets.value.forEach(t => {
+                            if (t.reportTime) {
+                                createdByDay[t.reportTime] = (createdByDay[t.reportTime] || 0) + 1;
+                                dateSet.add(t.reportTime);
+                            }
+                            if (normalizeStatus(t.status) === '完修' && t.completedDate) {
+                                if ((!analyticsRange.start || t.completedDate >= analyticsRange.start) &&
+                                    (!analyticsRange.end || t.completedDate <= analyticsRange.end)) {
+                                    completedByDay[t.completedDate] = (completedByDay[t.completedDate] || 0) + 1;
+                                    dateSet.add(t.completedDate);
+                                }
+                            }
+                        });
+
+                        let labels = Array.from(dateSet).sort();
+                        if (analyticsRange.start && analyticsRange.end && analyticsRangeDays.value <= 45) {
+                            const filled = [];
+                            const cur = new Date(analyticsRange.start);
+                            const endD = new Date(analyticsRange.end);
+                            while (cur <= endD) {
+                                filled.push(toISODateStr(cur));
+                                cur.setDate(cur.getDate() + 1);
+                            }
+                            labels = filled;
+                        }
+                        const shortLabels = labels.map(d => d.slice(5));
+                        const createdData = labels.map(d => createdByDay[d] || 0);
+                        const completedData = labels.map(d => completedByDay[d] || 0);
+
+                        chartInstances.c1 = new window.Chart(c1, {
+                            type: 'line',
+                            data: {
+                                labels: shortLabels,
+                                datasets: [
+                                    {
+                                        label: '每日新增報修',
+                                        data: createdData,
+                                        borderColor: '#4f46e5',
+                                        backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                                        fill: true,
+                                        tension: 0.3,
+                                        pointRadius: labels.length > 35 ? 1.5 : 3
+                                    },
+                                    {
+                                        label: '當日完修結案',
+                                        data: completedData,
+                                        borderColor: '#10b981',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.10)',
+                                        fill: true,
+                                        tension: 0.3,
+                                        pointRadius: labels.length > 35 ? 1.5 : 3
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: { legend: { position: 'top' } },
+                                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                            }
+                        });
+                    }
+
+                    // 2. 工程師案件量與狀態分佈堆疊長條圖
+                    const c2 = document.getElementById('chart-engineer-workload');
+                    if (c2) {
+                        destroyChart('c2');
+                        const rows = engineerPerformanceRows.value;
+                        const labels = rows.map(r => r.engineer.split(' ')[0]);
+                        chartInstances.c2 = new window.Chart(c2, {
+                            type: 'bar',
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: '完修', data: rows.map(r => r.completed), backgroundColor: '#10b981', borderRadius: 4 },
+                                    { label: '報價中', data: rows.map(r => r.quoting), backgroundColor: '#8b5cf6', borderRadius: 4 },
+                                    { label: '處理中/未執行', data: rows.map(r => r.pending), backgroundColor: '#f59e0b', borderRadius: 4 },
+                                    { label: '取消叫修', data: rows.map(r => r.cancelled), backgroundColor: '#94a3b8', borderRadius: 4 }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'top' } },
+                                scales: {
+                                    x: { stacked: true },
+                                    y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                                }
+                            }
+                        });
+                    }
+
+                    // 3. 工程師平均完修天數 vs 時效達標率雙軸圖
+                    const c3 = document.getElementById('chart-engineer-efficiency');
+                    if (c3) {
+                        destroyChart('c3');
+                        const rows = engineerPerformanceRows.value;
+                        const labels = rows.map(r => r.engineer.split(' ')[0]);
+                        chartInstances.c3 = new window.Chart(c3, {
+                            type: 'bar',
+                            data: {
+                                labels,
+                                datasets: [
+                                    {
+                                        type: 'bar',
+                                        label: '平均完修天數 (天)',
+                                        data: rows.map(r => r.avgRepairDays || 0),
+                                        backgroundColor: 'rgba(14, 165, 233, 0.75)',
+                                        borderRadius: 6,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        type: 'line',
+                                        label: 'SLA 時效達標率 (%)',
+                                        data: rows.map(r => r.slaHitRate),
+                                        borderColor: '#f59e0b',
+                                        backgroundColor: '#f59e0b',
+                                        borderWidth: 2.5,
+                                        tension: 0.25,
+                                        yAxisID: 'y1'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: { legend: { position: 'top' } },
+                                scales: {
+                                    y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: '天數' } },
+                                    y1: { type: 'linear', position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: '達標率 %' } }
+                                }
+                            }
+                        });
+                    }
+
+                    // 4. 設備機型維修排行 Top 10
+                    const c4 = document.getElementById('chart-top-models');
+                    if (c4) {
+                        destroyChart('c4');
+                        const modelCount = {};
+                        analyticsTickets.value.forEach(t => {
+                            const m = String(t.model || '未填寫').trim().toUpperCase();
+                            if (!m) return;
+                            modelCount[m] = (modelCount[m] || 0) + 1;
+                        });
+                        const top10 = Object.entries(modelCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                        chartInstances.c4 = new window.Chart(c4, {
+                            type: 'bar',
+                            data: {
+                                labels: top10.map(x => x[0]),
+                                datasets: [{
+                                    label: '維修件數',
+                                    data: top10.map(x => x[1]),
+                                    backgroundColor: '#a855f7',
+                                    borderRadius: 6
+                                }]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                            }
+                        });
+                    }
+                };
+
+                watch([activeView, () => analyticsRange.start, () => analyticsRange.end, analyticsEngineer, analyticsSortKey, analyticsSortDir, tickets], () => {
+                    if (activeView.value === 'analytics') {
+                        nextTick(() => renderAnalyticsCharts());
+                    }
+                });
+
                 return {
                     statuses, engineers, tickets, formData, getTickets, getStatusColor, normalizeStatus, handleDateAndStatus,
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
@@ -3741,6 +4506,9 @@ window.onerror = function(msg, url, line, col, error) {
                     showSearchModal, searchInput, activeSearchQuery, openSearchModal, closeSearchModal, executeSearch,
                     historyFilters, historyDisplayLimit, resetHistoryFilters, openHistoryPage, allMatchedHistoryTickets,
                     displayHistoryTickets, searchStats, parseDetails, toggleNote, isNoteOpen, exportSearchResult,
+                    analyticsPreset, analyticsEngineer, analyticsRange, analyticsSortKey, analyticsSortDir,
+                    setAnalyticsPreset, openAnalyticsPage, toggleAnalyticsEngineer, sortAnalyticsTable, jumpToHistoryWithCustomer,
+                    analyticsTickets, analyticsRangeDays, analyticsKPI, engineerPerformanceRows, repeatRepairHotspots, exportAnalyticsCSV,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     quotePageFilter, quoteSearchQuery, quoteEngineerFilter, filteredQuotingTickets,
                     uploadingQuoteTicketId, triggerQuoteFileUpload, handleDirectQuoteUpload, removeQuoteAttachment,
