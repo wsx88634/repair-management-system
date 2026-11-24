@@ -165,7 +165,8 @@ function doGet(e) {
           isArchived: Boolean(row[9] === true || row[9] === "TRUE" || row[9] === "true"),
           details: detailsStr,
           attachments: attachments,
-          logs: logs
+          logs: logs,
+          repairNote: String(row[15] || "")
         });
       }
     }
@@ -295,11 +296,11 @@ function doPost(e) {
       }
     }
 
-    // 2. 更新單據資料 (穩定覆蓋版，支援 logs 時間軸紀錄)
+    // 2. 更新單據資料 (穩定覆蓋版，支援 logs 時間軸紀錄與 repairNote 維修備註)
     if (body.tickets && Array.isArray(body.tickets) && body.tickets.length > 0) {
       const lastRow = ticketSheet.getLastRow();
       if (lastRow > 1) {
-        ticketSheet.getRange(2, 1, lastRow - 1, 15).clearContent();
+        ticketSheet.getRange(2, 1, lastRow - 1, 16).clearContent();
       }
 
       const rowsToAppend = body.tickets.map(t => {
@@ -318,12 +319,13 @@ function doPost(e) {
           JSON.stringify(t.attachments || []),
           formatDate(new Date()),
           t.issue || "",
-          JSON.stringify(t.logs || [])
+          JSON.stringify(t.logs || []),
+          t.repairNote || ""
         ];
       });
 
       if (rowsToAppend.length > 0) {
-        ticketSheet.getRange(2, 1, rowsToAppend.length, 15).setValues(rowsToAppend);
+        ticketSheet.getRange(2, 1, rowsToAppend.length, 16).setValues(rowsToAppend);
       }
     }
 

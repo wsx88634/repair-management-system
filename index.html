@@ -1191,6 +1191,16 @@ window.onerror = function(msg, url, line, col, error) {
                                         </template>
                                     </div>
                                 </div>
+
+                                <!-- 照片下方：維修備註 / 完修訊息 -->
+                                <div v-if="ticket.repairNote" class="mt-4 pt-3 border-t border-amber-200/60">
+                                    <div class="font-bold text-emerald-800 flex items-center gap-1.5 mb-1.5">
+                                        <l-icon name="clipboard-edit" class="w-4 h-4 text-emerald-600"></l-icon> 維修備註 / 完修訊息：
+                                    </div>
+                                    <div class="whitespace-pre-line bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 text-slate-700 font-medium leading-relaxed">
+                                        {{ ticket.repairNote }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1895,6 +1905,15 @@ window.onerror = function(msg, url, line, col, error) {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 維修備註 / 完修訊息 (位於附件照片下方) -->
+                    <div class="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3.5 space-y-1.5">
+                        <label class="label-style text-emerald-800 font-extrabold m-0 flex items-center gap-1.5">
+                            <l-icon name="clipboard-edit" class="w-4 h-4 text-emerald-600"></l-icon>
+                            維修備註 / 完修訊息
+                        </label>
+                        <textarea v-model="editData.repairNote" rows="3" class="input-style bg-white resize-y custom-scrollbar leading-relaxed font-medium" placeholder="請填寫現場維修處理方式、更換零件或完修備註訊息..."></textarea>
                     </div>
 
                     <!-- 詳細備註與其他資訊 (高度增加2倍) -->
@@ -2951,6 +2970,7 @@ window.onerror = function(msg, url, line, col, error) {
                             quoteState: inc.quoteState !== undefined ? inc.quoteState : (local ? local.quoteState : ''),
                             isArchived: inc.isArchived !== undefined ? Boolean(inc.isArchived) : false,
                             details: inc.details !== undefined ? inc.details : (local ? local.details : ''),
+                            repairNote: inc.repairNote !== undefined ? inc.repairNote : (local ? (local.repairNote || '') : ''),
                             attachments: safeAttachments,
                             logs: safeLogs
                         });
@@ -3111,7 +3131,8 @@ window.onerror = function(msg, url, line, col, error) {
                                     quoteState: t.quoteState || '',
                                     isArchived: t.isArchived || false,
                                     attachments: safeAttachments,
-                                    logs: t.logs || []
+                                    logs: t.logs || [],
+                                    repairNote: t.repairNote || ''
                                 };
                             });
 
@@ -3713,7 +3734,7 @@ window.onerror = function(msg, url, line, col, error) {
                 };
 
                 const downloadCSV = (exportData, filenamePrefix) => {
-                    const headers = ['編號', '報修日期', '完成日期', '當前狀態', '報價進度', '歸檔狀態', '負責工程師', '客戶名稱', '機型', '時效(天)', '聯絡人', '電話', '地址', '保固', '問題狀況', '其他詳細資訊'];
+                    const headers = ['編號', '報修日期', '完成日期', '當前狀態', '報價進度', '歸檔狀態', '負責工程師', '客戶名稱', '機型', '時效(天)', '聯絡人', '電話', '地址', '保固', '問題狀況', '維修備註', '其他詳細資訊'];
                     const escapeCSV = (val) => {
                         let str = String(val === null || val === undefined ? '' : val)
                             .replace(/[\r\n\t]+/g, ' ')
@@ -3744,6 +3765,7 @@ window.onerror = function(msg, url, line, col, error) {
                             escapeCSV(p.address),
                             escapeCSV(p.warranty),
                             escapeCSV(issueText),
+                            escapeCSV(t.repairNote || ''),
                             escapeCSV(t.details)
                         ];
                     });

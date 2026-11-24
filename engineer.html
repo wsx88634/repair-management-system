@@ -479,6 +479,33 @@ window.onerror = function(msg, url, line, col, error) {
                                     <img v-else :src="att" @click="viewImage(att, ticket.attachments)" class="w-16 h-16 object-cover rounded-lg border border-amber-200 cursor-pointer" />
                                 </template>
                             </div>
+
+                            <!-- 照片下方：維修備註 / 完修訊息填寫區 -->
+                            <div class="pt-2.5 border-t border-amber-200/70 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-extrabold text-emerald-800 flex items-center gap-1">
+                                        <l-icon name="clipboard-edit" class="w-3.5 h-3.5 text-emerald-600"></l-icon>
+                                        維修備註 / 完修訊息
+                                    </span>
+                                    <span v-if="savedNoteTicketId === ticket.id" class="text-[11px] font-bold text-emerald-600">✅ 已儲存並同步</span>
+                                </div>
+                                <div v-if="ticket.engineer === currentEngineer" class="space-y-2">
+                                    <textarea
+                                        v-model="ticket.repairNote"
+                                        rows="3"
+                                        placeholder="請輸入現場維修處理方式、更換零件或完修備註訊息..."
+                                        class="input-style bg-white text-xs leading-relaxed resize-y"
+                                    ></textarea>
+                                    <div class="flex justify-end">
+                                        <button @click="saveInlineRepairNote(ticket)" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                                            <l-icon name="save" class="w-3.5 h-3.5"></l-icon> 儲存維修備註
+                                        </button>
+                                    </div>
+                                </div>
+                                <div v-else class="bg-white/80 border border-slate-200 rounded-xl p-2.5 text-slate-700 whitespace-pre-line leading-relaxed">
+                                    {{ ticket.repairNote || '（尚無填寫維修備註）' }}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -693,6 +720,15 @@ window.onerror = function(msg, url, line, col, error) {
                                 <button @click="removeAttachment(idx)" type="button" class="absolute -top-2 -right-2 bg-rose-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shadow-md">×</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 照片下方：維修備註 / 完修訊息獨立填寫欄 -->
+                    <div class="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3.5 space-y-1.5">
+                        <label class="label-style text-emerald-800 font-extrabold m-0 flex items-center gap-1.5">
+                            <l-icon name="clipboard-edit" class="w-4 h-4 text-emerald-600"></l-icon>
+                            維修備註 / 完修訊息
+                        </label>
+                        <textarea v-model="editData.repairNote" rows="3" placeholder="填寫現場處理過程、更換零件、測試結果或完修備註訊息..." class="input-style bg-white resize-y custom-scrollbar leading-relaxed"></textarea>
                     </div>
 
                     <!-- 詳細備註 (加高 2 倍方便輸入檢視) -->
@@ -1134,6 +1170,7 @@ window.onerror = function(msg, url, line, col, error) {
                             issue: inc.issue || (inc.details ? String(inc.details).split('\n')[0].trim() : ''),
                             attachments: atts,
                             logs: Array.isArray(inc.logs) ? inc.logs : [],
+                            repairNote: inc.repairNote || '',
                             isArchived: Boolean(inc.isArchived)
                         });
                     });
@@ -1193,7 +1230,8 @@ window.onerror = function(msg, url, line, col, error) {
                             quoteState: t.quoteState || '',
                             isArchived: Boolean(t.isArchived),
                             attachments: (t.attachments || []).map(a => (a.startsWith('data:') && a.length > 1000000) ? '[過大未上傳媒體]' : a),
-                            logs: t.logs || []
+                            logs: t.logs || [],
+                            repairNote: t.repairNote || ''
                         }));
                         await fetchWithRetry(API_URL, {
                             method: 'POST',
@@ -1267,7 +1305,7 @@ window.onerror = function(msg, url, line, col, error) {
                     const keywords = q ? q.split(/\s+/).filter(Boolean) : [];
                     if (keywords.length > 0) {
                         list = list.filter(t => {
-                            const hay = [t.id, t.customer, t.model, t.issue, t.engineer, t.details, t.status].map(v => String(v || '').toLowerCase()).join(' ');
+                            const hay = [t.id, t.customer, t.model, t.issue, t.engineer, t.details, t.repairNote, t.status].map(v => String(v || '').toLowerCase()).join(' ');
                             return keywords.every(kw => hay.includes(kw));
                         });
                     }
@@ -1351,6 +1389,22 @@ window.onerror = function(msg, url, line, col, error) {
                 };
                 const onEditIssueInput = () => { if (editData.value) editData.value.isIssueTouched = true; };
 
+                const savedNoteTicketId = ref('');
+                const saveInlineRepairNote = async (ticket) => {
+                    if (!ticket || ticket.engineer !== currentEngineer.value) return;
+                    const idx = tickets.value.findIndex(t => t.id === ticket.id);
+                    if (idx !== -1) {
+                        const updated = { ...tickets.value[idx], repairNote: String(ticket.repairNote || '').trim() };
+                        addTicketLog(updated, '維修備註', updated.repairNote ? `更新完修/維修備註：${updated.repairNote.slice(0, 80)}` : '清空維修備註', currentEngineer.value);
+                        tickets.value.splice(idx, 1, updated);
+                        savedNoteTicketId.value = ticket.id;
+                        setTimeout(() => {
+                            if (savedNoteTicketId.value === ticket.id) savedNoteTicketId.value = '';
+                        }, 2500);
+                        await saveData();
+                    }
+                };
+
                 const saveTicketModal = async () => {
                     if (!editData.value) return;
                     const idx = tickets.value.findIndex(t => t.id === editData.value.id);
@@ -1360,8 +1414,10 @@ window.onerror = function(msg, url, line, col, error) {
                         handleDateAndStatus(editData.value, editData.value.status);
                         if (editData.value.status !== old.status) {
                             addTicketLog(editData.value, editData.value.status === '完修' ? '完修紀錄' : '狀態變更', `狀態由「${old.status}」變更為「${editData.value.status}」`, currentEngineer.value);
+                        } else if ((editData.value.repairNote || '') !== (old.repairNote || '')) {
+                            addTicketLog(editData.value, '維修備註', '更新現場完修/維修備註', currentEngineer.value);
                         } else if (editData.value.details !== old.details) {
-                            addTicketLog(editData.value, '備註更新', '更新現場維修備註與詳情', currentEngineer.value);
+                            addTicketLog(editData.value, '備註更新', '更新詳細資訊', currentEngineer.value);
                         }
                         tickets.value.splice(idx, 1, { ...editData.value });
                     }
@@ -1479,6 +1535,7 @@ window.onerror = function(msg, url, line, col, error) {
                     allMatchedHistoryTickets, displayHistoryTickets, toggleNote, isNoteOpen,
                     myPersonalStats, myRecentCompleted,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, onEditDetailsInput, onEditIssueInput,
+                    savedNoteTicketId, saveInlineRepairNote,
                     quickChangeStatus, handleDateAndStatus, normalizeStatus, isOverdue, getStatusColor, parseDetails, getDisplayLogs,
                     isPdf, openPdf, viewingImage, imageList, imageIndex, viewImage, closeImageViewer, prevImage, nextImage, handleTouchStart, handleTouchEnd,
                     handleImageUpload, removeAttachment, manualRefresh,
