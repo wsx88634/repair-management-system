@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>叫修輔助管理系統 - 工程師個人工作台</title>
+    <link rel="icon" type="image/png" href="./logo.png">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,7 +18,7 @@
     <style type="text/tailwindcss">
         @layer utilities {
             .input-style {
-                @apply bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 focus:bg-white block w-full p-2.5 outline-none transition-all duration-200 shadow-sm;
+                @apply bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl focus:ring-4 focus:ring-[#009CE0]/20 focus:border-[#009CE0] focus:bg-white block w-full p-2.5 outline-none transition-all duration-200 shadow-sm;
             }
             .label-style {
                 @apply text-xs font-bold text-slate-500 ml-1 tracking-wide block mb-1.5;
@@ -37,7 +38,7 @@
         .l-icon-wrapper svg { width: 100%; height: 100%; stroke-width: 2.2px; }
     </style>
 </head>
-<body class="bg-[#F8FAFC] text-slate-800 antialiased selection:bg-blue-200 selection:text-blue-900">
+<body class="bg-[#F4F7FB] text-slate-800 antialiased selection:bg-sky-200 selection:text-[#0F1B44]">
 <div id="debug-error" style="position:fixed; top:0; left:0; right:0; background:red; color:white; z-index:99999; padding:16px; font-size:14px; white-space:pre-wrap; display:none;"></div>
 <script>
 window.onerror = function(msg, url, line, col, error) {
@@ -52,18 +53,18 @@ window.onerror = function(msg, url, line, col, error) {
         <!-- ======================================================= -->
         <!-- 畫面一：工程師專屬姓名選擇與密碼登入畫面 (未登入狀態) -->
         <!-- ======================================================= -->
-        <div v-if="!currentEngineer" class="min-h-screen flex items-center justify-center p-4 md:p-6 bg-gradient-to-br from-slate-100 via-blue-50/40 to-indigo-50/60">
-            <div class="w-full max-w-lg bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden">
-                <!-- 登入卡片頂部 -->
-                <div class="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 p-6 md:p-7 text-white">
+        <div v-if="!currentEngineer" class="min-h-screen flex items-center justify-center p-4 md:p-6 bg-gradient-to-br from-[#EDF3FA] via-sky-50/50 to-slate-100">
+            <div class="w-full max-w-lg bg-white rounded-3xl shadow-xl shadow-[#0F1B44]/10 border border-slate-200/80 overflow-hidden">
+                <!-- 登入卡片頂部 (符合 Inno LOGO 企業品牌深藍+亮藍配色) -->
+                <div class="bg-gradient-to-r from-[#0F1B44] via-[#132356] to-[#0B4F7A] p-6 md:p-7 text-white">
                     <div class="flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white/15 backdrop-blur-sm p-2.5 rounded-2xl border border-white/20">
-                                <l-icon name="wrench" class="w-6 h-6 text-blue-200"></l-icon>
+                        <div class="flex items-center gap-3.5">
+                            <div class="bg-white p-1.5 rounded-2xl shadow-md ring-2 ring-white/25 shrink-0 flex items-center justify-center">
+                                <img src="./logo.png" alt="Inno 公司 LOGO" class="w-11 h-11 object-contain" />
                             </div>
                             <div>
                                 <h1 class="text-xl font-black tracking-tight">工程師個人工作台</h1>
-                                <p class="text-xs text-blue-200 font-medium mt-0.5">叫修輔助管理系統 · 請選擇您的姓名並登入</p>
+                                <p class="text-xs text-sky-200 font-medium mt-0.5">叫修輔助管理系統 · 請選擇您的姓名並登入</p>
                             </div>
                         </div>
                         <span class="text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 shrink-0" :class="isApiConnected ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30' : 'bg-amber-500/20 text-amber-200 border-amber-400/30'">
@@ -72,6 +73,8 @@ window.onerror = function(msg, url, line, col, error) {
                         </span>
                     </div>
                 </div>
+                <!-- LOGO 品牌三色漸層識別線條 (黃 → 紅 → 亮藍) -->
+                <div class="h-1 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
 
                 <!-- 登入表單內容 -->
                 <div class="p-6 space-y-5">
@@ -83,8 +86,8 @@ window.onerror = function(msg, url, line, col, error) {
                     <!-- Step 1: 選擇工程師姓名 -->
                     <div class="space-y-2.5">
                         <div class="flex items-center justify-between">
-                            <label class="text-xs font-extrabold text-slate-600 flex items-center gap-1.5">
-                                <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-black">1</span>
+                            <label class="text-xs font-extrabold text-[#0F1B44] flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-full bg-[#132356] text-white text-[11px] flex items-center justify-center font-black shadow-xs">1</span>
                                 請點選您的姓名
                             </label>
                             <span class="text-[11px] font-bold text-slate-400">共 {{ activeEngineersList.length }} 位工程師</span>
@@ -97,9 +100,9 @@ window.onerror = function(msg, url, line, col, error) {
                                 type="button"
                                 @click="selectLoginEngineer(eng)"
                                 class="p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 active:scale-[0.98]"
-                                :class="selectedLoginEng === eng ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-2 ring-blue-300' : 'bg-slate-50 hover:bg-blue-50/70 text-slate-700 border-slate-200 hover:border-blue-300'"
+                                :class="selectedLoginEng === eng ? 'bg-gradient-to-r from-[#132356] to-[#009CE0] text-white border-[#132356] shadow-md shadow-[#132356]/25 ring-2 ring-[#009CE0]/40' : 'bg-slate-50/90 hover:bg-sky-50/80 text-slate-700 border-slate-200 hover:border-[#009CE0]/60'"
                             >
-                                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0" :class="selectedLoginEng === eng ? 'bg-white/20 text-white' : 'bg-white text-blue-600 border border-slate-200'">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0" :class="selectedLoginEng === eng ? 'bg-white/20 text-white' : 'bg-white text-[#132356] border border-slate-200 shadow-2xs'">
                                     {{ eng.slice(0, 1) }}
                                 </div>
                                 <span class="font-bold text-sm truncate">{{ eng }}</span>
@@ -109,9 +112,9 @@ window.onerror = function(msg, url, line, col, error) {
 
                     <!-- Step 2: 輸入專屬密碼 -->
                     <div v-if="selectedLoginEng" class="space-y-3 pt-2 border-t border-slate-100">
-                        <label class="text-xs font-extrabold text-slate-600 flex items-center gap-1.5">
-                            <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-black">2</span>
-                            輸入「<span class="text-blue-700">{{ selectedLoginEng }}</span>」的專屬登入密碼
+                        <label class="text-xs font-extrabold text-[#0F1B44] flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-[#009CE0] text-white text-[11px] flex items-center justify-center font-black shadow-xs">2</span>
+                            輸入「<span class="text-[#0082C3]">{{ selectedLoginEng }}</span>」的專屬登入密碼
                         </label>
 
                         <div class="relative">
@@ -135,7 +138,7 @@ window.onerror = function(msg, url, line, col, error) {
                         </div>
 
                         <label class="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none px-1">
-                            <input type="checkbox" v-model="rememberLogin" class="w-4 h-4 rounded accent-blue-600" />
+                            <input type="checkbox" v-model="rememberLogin" class="w-4 h-4 rounded accent-[#132356]" />
                             <span>在此裝置長時間保持登入（下次開啟免重打密碼）</span>
                         </label>
 
@@ -143,7 +146,7 @@ window.onerror = function(msg, url, line, col, error) {
                             type="button"
                             @click="handleEngineerLogin"
                             :disabled="isLoggingIn"
-                            class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-blue-600/25 transition-all active:scale-[0.99] flex items-center justify-center gap-2 text-sm"
+                            class="w-full bg-gradient-to-r from-[#132356] to-[#009CE0] hover:from-[#0F1B44] hover:to-[#0284C7] disabled:opacity-50 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-[#132356]/25 transition-all active:scale-[0.99] flex items-center justify-center gap-2 text-sm"
                         >
                             <l-icon :name="isLoggingIn ? 'refresh-cw' : 'log-in'" class="w-4 h-4" :class="isLoggingIn ? 'animate-spin' : ''"></l-icon>
                             {{ isLoggingIn ? '驗證登入中...' : '登入我的個人工作台' }}
@@ -163,54 +166,57 @@ window.onerror = function(msg, url, line, col, error) {
         <div v-else class="max-w-4xl mx-auto pb-24 md:pb-10 p-3 md:p-6 space-y-5">
 
             <!-- 頂部個人資訊標頭 -->
-            <header class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-black text-lg flex items-center justify-center shadow-md shadow-blue-600/20 shrink-0">
-                        {{ currentEngineer.slice(0, 1) }}
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h1 class="text-lg md:text-xl font-black text-slate-800">{{ currentEngineer }}</h1>
-                            <span
-                                @click="!isApiConnected && !isLoading ? manualRefresh() : null"
-                                class="text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 select-none"
-                                :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200 cursor-pointer')"
-                            >
-                                <span class="w-1.5 h-1.5 rounded-full" :class="isApiConnected ? 'bg-emerald-500' : (isLoading ? 'bg-blue-500 animate-pulse' : 'bg-amber-500')"></span>
-                                {{ isApiConnected ? '已連線' : (isLoading ? '同步中...' : '離線快取') }}
-                            </span>
+            <header class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="h-1 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
+                <div class="p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-white p-1 rounded-xl border border-slate-200/90 shadow-xs shrink-0 flex items-center justify-center">
+                            <img src="./logo.png" alt="Inno 公司 LOGO" class="w-9 h-9 object-contain" />
                         </div>
-                        <p class="text-xs text-slate-400 font-medium">工程師個人專屬叫修工作台</p>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h1 class="text-lg md:text-xl font-black text-[#0F1B44]">{{ currentEngineer }}</h1>
+                                <span
+                                    @click="!isApiConnected && !isLoading ? manualRefresh() : null"
+                                    class="text-[11px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 select-none"
+                                    :class="isApiConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (isLoading ? 'bg-sky-50 text-[#0082C3] border-sky-200' : 'bg-amber-50 text-amber-700 border-amber-200 cursor-pointer')"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="isApiConnected ? 'bg-emerald-500' : (isLoading ? 'bg-[#009CE0] animate-pulse' : 'bg-amber-500')"></span>
+                                    {{ isApiConnected ? '已連線' : (isLoading ? '同步中...' : '離線快取') }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-medium">工程師個人專屬叫修工作台</p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    <button @click="manualRefresh" :disabled="isLoading" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95">
-                        <l-icon name="refresh-cw" class="w-3.5 h-3.5" :class="isLoading ? 'animate-spin' : ''"></l-icon> 重新整理
-                    </button>
-                    <button @click="confirmLogout" class="flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95">
-                        <l-icon name="log-out" class="w-3.5 h-3.5"></l-icon> 登出
-                    </button>
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button @click="manualRefresh" :disabled="isLoading" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-sky-50 hover:text-[#132356] text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95">
+                            <l-icon name="refresh-cw" class="w-3.5 h-3.5" :class="isLoading ? 'animate-spin' : ''"></l-icon> 重新整理
+                        </button>
+                        <button @click="confirmLogout" class="flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95">
+                            <l-icon name="log-out" class="w-3.5 h-3.5"></l-icon> 登出
+                        </button>
+                    </div>
                 </div>
             </header>
 
             <!-- 4 大分頁導覽列 (桌面與平板頂部顯示，手機底部固定顯示) -->
             <nav class="hidden md:grid grid-cols-4 gap-2.5 bg-white p-2 rounded-2xl shadow-sm border border-slate-200/80">
-                <button @click="activeTab = 'todo'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'todo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'text-slate-600 hover:bg-slate-100'">
+                <button @click="activeTab = 'todo'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'todo' ? 'bg-gradient-to-r from-[#132356] to-[#009CE0] text-white shadow-md shadow-[#132356]/20' : 'text-slate-600 hover:bg-slate-100'">
                     <l-icon name="clipboard-list" class="w-4 h-4"></l-icon>
                     <span>我的待辦</span>
-                    <span class="text-xs px-2 py-0.5 rounded-full" :class="activeTab === 'todo' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'">{{ myTodoTickets.length }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full" :class="activeTab === 'todo' ? 'bg-white/20 text-white' : 'bg-sky-100 text-[#132356]'">{{ myTodoTickets.length }}</span>
                 </button>
                 <button @click="activeTab = 'quote'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'quote' ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20' : 'text-slate-600 hover:bg-slate-100'">
                     <l-icon name="file-spreadsheet" class="w-4 h-4"></l-icon>
                     <span>我的報價</span>
                     <span class="text-xs px-2 py-0.5 rounded-full" :class="activeTab === 'quote' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'">{{ myQuotingTickets.length }}</span>
                 </button>
-                <button @click="activeTab = 'history'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'history' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/20' : 'text-slate-600 hover:bg-slate-100'">
+                <button @click="activeTab = 'history'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'history' ? 'bg-[#009CE0] text-white shadow-md shadow-[#009CE0]/25' : 'text-slate-600 hover:bg-slate-100'">
                     <l-icon name="search" class="w-4 h-4"></l-icon>
                     <span>歷史查詢</span>
                 </button>
-                <button @click="activeTab = 'stats'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:bg-slate-100'">
+                <button @click="activeTab = 'stats'" class="py-2.5 px-3 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all" :class="activeTab === 'stats' ? 'bg-[#132356] text-white shadow-md shadow-[#132356]/20' : 'text-slate-600 hover:bg-slate-100'">
                     <l-icon name="bar-chart-3" class="w-4 h-4"></l-icon>
                     <span>我的績效</span>
                 </button>
@@ -579,21 +585,21 @@ window.onerror = function(msg, url, line, col, error) {
 
             <!-- 手機底部固定導覽列 -->
             <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 grid grid-cols-4 px-2 py-1.5">
-                <button @click="activeTab = 'todo'" class="flex flex-col items-center justify-center py-1.5 rounded-xl relative" :class="activeTab === 'todo' ? 'text-blue-600 font-extrabold bg-blue-50/70' : 'text-slate-500 font-bold'">
+                <button @click="activeTab = 'todo'" class="flex flex-col items-center justify-center py-1.5 rounded-xl relative" :class="activeTab === 'todo' ? 'text-[#132356] font-extrabold bg-sky-50' : 'text-slate-500 font-bold'">
                     <l-icon name="clipboard-list" class="w-5 h-5"></l-icon>
                     <span class="text-[11px] mt-0.5">我的待辦</span>
-                    <span v-if="myTodoTickets.length > 0" class="absolute top-0.5 right-3 text-[10px] font-black px-1.5 rounded-full" :class="myTodoCounts.overdue > 0 ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white'">{{ myTodoTickets.length }}</span>
+                    <span v-if="myTodoTickets.length > 0" class="absolute top-0.5 right-3 text-[10px] font-black px-1.5 rounded-full" :class="myTodoCounts.overdue > 0 ? 'bg-rose-600 text-white' : 'bg-[#009CE0] text-white'">{{ myTodoTickets.length }}</span>
                 </button>
                 <button @click="activeTab = 'quote'" class="flex flex-col items-center justify-center py-1.5 rounded-xl relative" :class="activeTab === 'quote' ? 'text-purple-600 font-extrabold bg-purple-50/70' : 'text-slate-500 font-bold'">
                     <l-icon name="file-spreadsheet" class="w-5 h-5"></l-icon>
                     <span class="text-[11px] mt-0.5">我的報價</span>
                     <span v-if="myQuotingTickets.length > 0" class="absolute top-0.5 right-3 text-[10px] font-black bg-purple-600 text-white px-1.5 rounded-full">{{ myQuotingTickets.length }}</span>
                 </button>
-                <button @click="activeTab = 'history'" class="flex flex-col items-center justify-center py-1.5 rounded-xl" :class="activeTab === 'history' ? 'text-sky-600 font-extrabold bg-sky-50/70' : 'text-slate-500 font-bold'">
+                <button @click="activeTab = 'history'" class="flex flex-col items-center justify-center py-1.5 rounded-xl" :class="activeTab === 'history' ? 'text-[#009CE0] font-extrabold bg-sky-50' : 'text-slate-500 font-bold'">
                     <l-icon name="search" class="w-5 h-5"></l-icon>
                     <span class="text-[11px] mt-0.5">歷史查詢</span>
                 </button>
-                <button @click="activeTab = 'stats'" class="flex flex-col items-center justify-center py-1.5 rounded-xl" :class="activeTab === 'stats' ? 'text-indigo-600 font-extrabold bg-indigo-50/70' : 'text-slate-500 font-bold'">
+                <button @click="activeTab = 'stats'" class="flex flex-col items-center justify-center py-1.5 rounded-xl" :class="activeTab === 'stats' ? 'text-[#132356] font-extrabold bg-slate-100' : 'text-slate-500 font-bold'">
                     <l-icon name="bar-chart-3" class="w-5 h-5"></l-icon>
                     <span class="text-[11px] mt-0.5">我的績效</span>
                 </button>

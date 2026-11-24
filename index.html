@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>叫修輔助管理系統</title>
+    <link rel="icon" type="image/png" href="./logo.png">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,7 +24,7 @@
     <style type="text/tailwindcss">
         @layer utilities {
             .input-style {
-                @apply bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 focus:bg-white block w-full p-2.5 outline-none transition-all duration-200 shadow-sm;
+                @apply bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl focus:ring-4 focus:ring-[#009CE0]/20 focus:border-[#009CE0] focus:bg-white block w-full p-2.5 outline-none transition-all duration-200 shadow-sm;
             }
             .label-style {
                 @apply text-xs font-bold text-slate-500 ml-1 tracking-wide block mb-1.5;
@@ -76,27 +77,30 @@ window.onerror = function(msg, url, line, col, error) {
         <div v-if="isSidebarOpen" @click="toggleSidebar" class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-30 lg:hidden transition-opacity"></div>
 
         <!-- 左側收合狀態下的懸浮展開拉柄 -->
-        <button v-show="!isSidebarOpen" @click="toggleSidebar" title="展開左側資訊欄" class="fixed left-0 top-28 z-30 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-l-0 border-slate-200/90 shadow-lg rounded-r-2xl py-3.5 px-2.5 flex flex-col items-center gap-2 transition-all duration-200 hover:pl-3.5 group">
-            <l-icon name="panel-left-open" class="w-5 h-5 text-blue-600 transition-transform group-hover:scale-110"></l-icon>
+        <button v-show="!isSidebarOpen" @click="toggleSidebar" title="展開左側資訊欄" class="fixed left-0 top-28 z-30 bg-white hover:bg-sky-50 text-[#132356] hover:text-[#009CE0] border border-l-0 border-slate-200/90 shadow-lg rounded-r-2xl py-3.5 px-2.5 flex flex-col items-center gap-2 transition-all duration-200 hover:pl-3.5 group">
+            <l-icon name="panel-left-open" class="w-5 h-5 text-[#009CE0] transition-transform group-hover:scale-110"></l-icon>
             <span class="text-xs font-bold tracking-widest [writing-mode:vertical-rl]">資訊欄</span>
         </button>
 
         <!-- 能隱藏的左側資訊欄 -->
         <aside class="fixed top-0 left-0 h-screen w-72 bg-white border-r border-slate-200/80 shadow-xl z-40 flex flex-col justify-between transition-transform duration-300 ease-in-out" :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
-            <!-- 側欄頂部標題與隱藏按鈕 -->
-            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                <div class="flex items-center gap-2.5">
-                    <div class="bg-blue-600 text-white p-2 rounded-xl shadow-sm shadow-blue-600/20 flex items-center justify-center">
-                        <l-icon name="layout-dashboard" class="w-4 h-4"></l-icon>
+            <!-- 側欄頂部標題與隱藏按鈕 (企業品牌深藍+LOGO) -->
+            <div class="shrink-0">
+                <div class="p-4 flex items-center justify-between bg-gradient-to-r from-[#0F1B44] via-[#132356] to-[#0B4F7A] text-white">
+                    <div class="flex items-center gap-2.5">
+                        <div class="bg-white p-1 rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                            <img src="./logo.png" alt="Inno 公司 LOGO" class="w-8 h-8 object-contain" />
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-extrabold text-white tracking-tight">管理與資訊欄</h2>
+                            <p class="text-[11px] text-sky-200 font-medium">系統設定與功能捷徑</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 class="text-sm font-extrabold text-slate-800 tracking-tight">管理與資訊欄</h2>
-                        <p class="text-[11px] text-slate-400 font-medium">系統設定與功能捷徑</p>
-                    </div>
+                    <button @click="toggleSidebar" title="隱藏左側資訊欄" class="flex items-center gap-1 text-xs font-bold text-white/90 hover:text-white bg-white/15 hover:bg-white/25 px-2.5 py-1.5 rounded-xl border border-white/20 transition-all active:scale-95">
+                        <l-icon name="chevrons-left" class="w-4 h-4"></l-icon> 隱藏
+                    </button>
                 </div>
-                <button @click="toggleSidebar" title="隱藏左側資訊欄" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs transition-all active:scale-95">
-                    <l-icon name="chevrons-left" class="w-4 h-4"></l-icon> 隱藏
-                </button>
+                <div class="h-1 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
             </div>
 
             <!-- 側欄中段：即時資訊摘要 + 管理工具按鈕區 -->
@@ -131,7 +135,7 @@ window.onerror = function(msg, url, line, col, error) {
                 <div class="space-y-2.5">
                     <div class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">系統頁面切換</div>
 
-                    <button @click="activeView = 'kanban'" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'kanban' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-300' : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'">
+                    <button @click="activeView = 'kanban'" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'kanban' ? 'bg-gradient-to-r from-[#132356] to-[#009CE0] text-white shadow-md shadow-[#132356]/25 ring-2 ring-[#009CE0]/30' : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'">
                         <span class="flex items-center gap-2.5">
                             <l-icon name="kanban" class="w-4 h-4"></l-icon>
                             <span>叫修調度主看板</span>
@@ -221,16 +225,18 @@ window.onerror = function(msg, url, line, col, error) {
         <div class="max-w-[1400px] mx-auto space-y-6">
             
             <!-- 1. 頂部區塊 -->
-            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200/60">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/70 overflow-hidden">
+                <div class="h-1 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
+                <div class="p-6 md:p-8">
                 <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4" :class="activeView === 'kanban' ? 'mb-8' : 'mb-0'">
                     <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                        <button @click="toggleSidebar" :title="isSidebarOpen ? '隱藏左側資訊欄' : '展開左側資訊欄'" class="p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95" :class="isSidebarOpen ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'">
+                        <button @click="toggleSidebar" :title="isSidebarOpen ? '隱藏左側資訊欄' : '展開左側資訊欄'" class="p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95" :class="isSidebarOpen ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' : 'bg-sky-50 text-[#132356] border-sky-200 hover:bg-sky-100'">
                             <l-icon :name="isSidebarOpen ? 'panel-left-close' : 'panel-left-open'" class="w-5 h-5"></l-icon>
                         </button>
-                        <div class="bg-blue-100 p-2.5 rounded-xl shrink-0 flex items-center justify-center">
-                            <l-icon name="wrench" class="text-blue-600 w-6 h-6"></l-icon>
+                        <div class="bg-white p-1 rounded-xl border border-slate-200/90 shadow-xs shrink-0 flex items-center justify-center">
+                            <img src="./logo.png" alt="Inno 公司 LOGO" class="w-9 h-9 object-contain" />
                         </div>
-                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 whitespace-nowrap">
+                        <h1 class="text-xl md:text-2xl font-extrabold text-[#0F1B44] whitespace-nowrap">
                             叫修輔助管理面板
                         </h1>
                         <span v-if="isLoading" class="text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse border border-blue-200 whitespace-nowrap">
@@ -318,12 +324,13 @@ window.onerror = function(msg, url, line, col, error) {
                                 class="input-style flex-1 resize-y custom-scrollbar min-h-[60px] max-h-[200px]" 
                                 placeholder="請輸入詳細備註資訊 (第一行將自動帶入問題狀況)..."
                             ></textarea>
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 active:scale-[0.98] whitespace-nowrap md:w-auto w-full">
+                            <button type="submit" class="bg-gradient-to-r from-[#132356] to-[#009CE0] hover:from-[#0F1B44] hover:to-[#0284C7] text-white font-semibold px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#132356]/25 hover:shadow-[#132356]/35 active:scale-[0.98] whitespace-nowrap md:w-auto w-full">
                                 <l-icon name="plus" class="w-5 h-5"></l-icon> 建立派單
                             </button>
                         </div>
                     </div>
                 </form>
+                </div>
             </div>
 
             <template v-if="activeView === 'kanban'">
