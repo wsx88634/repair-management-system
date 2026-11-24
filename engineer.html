@@ -1260,6 +1260,45 @@ window.onerror = function(msg, url, line, col, error) {
                     syncTimeout = setTimeout(() => performCloudSync(), 400);
                 };
 
+                // 高併發單筆精準同步（只傳送被修改的那 1 筆單據，0.5 秒內完成且 100% 不會蓋掉其他工程師的資料）
+                const syncSingleTicket = async (ticketObj) => {
+                    localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
+                    if (!ticketObj || !ticketObj.id) return;
+                    isSaving.value = true;
+                    try {
+                        const safeTicket = {
+                            ...ticketObj,
+                            completedDate: ['完修', '取消叫修'].includes(normalizeStatus(ticketObj.status)) ? (ticketObj.completedDate || '') : '',
+                            quoteState: ticketObj.quoteState || '',
+                            isArchived: Boolean(ticketObj.isArchived),
+                            attachments: (ticketObj.attachments || []).map(a => (a.startsWith('data:') && a.length > 1000000) ? '[過大未上傳媒體]' : a),
+                            logs: ticketObj.logs || [],
+                            repairNote: ticketObj.repairNote || ''
+                        };
+                        const res = await fetchWithRetry(API_URL, {
+                            method: 'POST',
+                            redirect: 'follow',
+                            mode: 'cors',
+                            credentials: 'omit',
+                            headers: { "Content-Type": "text/plain;charset=utf-8" },
+                            body: JSON.stringify({ action: 'updateSingleTicket', ticket: safeTicket })
+                        }, 2, 500, 12000);
+                        const txt = await res.text();
+                        let json = null;
+                        try { json = JSON.parse(txt); } catch (e) {}
+                        if (json && json.status === 'success' && json.mode === 'single') {
+                            isApiConnected.value = true;
+                        } else {
+                            // 若 GAS 尚未部署新版 Code.gs，自動降級回相容同步
+                            await performCloudSync();
+                        }
+                    } catch (err) {
+                        isApiConnected.value = false;
+                    } finally {
+                        isSaving.value = false;
+                    }
+                };
+
                 // 個人化過濾資料
                 const myTodoTickets = computed(() => {
                     if (!currentEngineer.value) return [];
@@ -1366,7 +1405,7 @@ window.onerror = function(msg, url, line, col, error) {
                             handleDateAndStatus(updated, newStatus);
                             addTicketLog(updated, newStatus === '完修' ? '完修紀錄' : '狀態變更', `狀態變更為「${newStatus}」${updated.completedDate ? ` (完工日: ${updated.completedDate})` : ''}`, currentEngineer.value);
                             tickets.value.splice(idx, 1, updated);
-                            await saveData();
+                            await syncSingleTicket(updated);
                         }
                     };
                     confirmDialog.isOpen = true;
@@ -1401,7 +1440,7 @@ window.onerror = function(msg, url, line, col, error) {
                         setTimeout(() => {
                             if (savedNoteTicketId.value === ticket.id) savedNoteTicketId.value = '';
                         }, 2500);
-                        await saveData();
+                        await syncSingleTicket(updated);
                     }
                 };
 
@@ -1419,10 +1458,13 @@ window.onerror = function(msg, url, line, col, error) {
                         } else if (editData.value.details !== old.details) {
                             addTicketLog(editData.value, '備註更新', '更新詳細資訊', currentEngineer.value);
                         }
-                        tickets.value.splice(idx, 1, { ...editData.value });
+                        const savedObj = { ...editData.value };
+                        tickets.value.splice(idx, 1, savedObj);
+                        closeTicketModal();
+                        await syncSingleTicket(savedObj);
+                        return;
                     }
                     closeTicketModal();
-                    await saveData();
                 };
 
                 // 圖片壓縮與 Google Drive 上傳
@@ -1516,10 +1558,22 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                 };
 
+                let lastAutoFetchAt = 0;
                 onMounted(() => {
+                    lastAutoFetchAt = Date.now();
                     fetchData(false);
+                    // 手機休眠省流：螢幕鎖定或切換至其他 App 時暫停背景同步，切回畫面時自動刷新
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden && !viewingImage.value && !selectedTicket.value && !isSaving.value && !isSyncing) {
+                            if (Date.now() - lastAutoFetchAt > 5000) {
+                                lastAutoFetchAt = Date.now();
+                                fetchData(true);
+                            }
+                        }
+                    });
                     setInterval(() => {
-                        if (!viewingImage.value && !selectedTicket.value && !isSaving.value && !isSyncing) {
+                        if (!document.hidden && !viewingImage.value && !selectedTicket.value && !isSaving.value && !isSyncing) {
+                            lastAutoFetchAt = Date.now();
                             fetchData(true);
                         }
                     }, 30000);

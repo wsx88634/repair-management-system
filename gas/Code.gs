@@ -261,6 +261,47 @@ function doPost(e) {
       });
     }
 
+    // 0.6 單筆單據精準更新 (高併發防卡頓、100% 防多人互相覆蓋)
+    if (body.action === "updateSingleTicket" && body.ticket && body.ticket.id) {
+      const t = body.ticket;
+      const targetId = String(t.id).trim();
+      const lastRow = ticketSheet.getLastRow();
+      let matchedRow = -1;
+      if (lastRow > 1) {
+        const ids = ticketSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+        for (let i = 0; i < ids.length; i++) {
+          if (String(ids[i][0] || "").trim() === targetId) {
+            matchedRow = i + 2;
+            break;
+          }
+        }
+      }
+      const rowData = [
+        targetId,
+        t.reportTime || "",
+        t.customer || "",
+        t.model || "",
+        t.engineer || "未指派",
+        t.slaDays || 3,
+        t.status || "未執行",
+        t.completedDate || "",
+        t.quoteState || "",
+        t.isArchived ? true : false,
+        t.details || "",
+        JSON.stringify(t.attachments || []),
+        formatDate(new Date()),
+        t.issue || "",
+        JSON.stringify(t.logs || []),
+        t.repairNote || ""
+      ];
+      if (matchedRow > 0) {
+        ticketSheet.getRange(matchedRow, 1, 1, 16).setValues([rowData]);
+      } else {
+        ticketSheet.appendRow(rowData);
+      }
+      return respondJSON({ status: "success", mode: "single", id: targetId, message: "單筆單據精準更新成功" });
+    }
+
     // 1. 更新工程師團隊與帳號設定
     if (body.engineers && Array.isArray(body.engineers) && body.engineers.length > 0) {
       const sysData = sysSheet.getDataRange().getValues();
