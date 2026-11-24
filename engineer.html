@@ -309,6 +309,9 @@ window.onerror = function(msg, url, line, col, error) {
                                     <button @click="quickChangeStatus(ticket, '完修')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-sm transition-colors">
                                         <l-icon name="check-circle-2" class="w-3.5 h-3.5"></l-icon> 完修
                                     </button>
+                                    <button @click="quickChangeStatus(ticket, '取消叫修')" class="bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-300 hover:border-rose-300 px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors">
+                                        <l-icon name="x-circle" class="w-3.5 h-3.5"></l-icon> 取消叫修
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -379,9 +382,14 @@ window.onerror = function(msg, url, line, col, error) {
                             <button @click="openTicketModal(ticket)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
                                 <l-icon name="edit-3" class="w-3.5 h-3.5"></l-icon> 編輯備註 / 上傳附件
                             </button>
-                            <button v-if="ticket.quoteState === '同意報價'" @click="quickChangeStatus(ticket, '完修')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-sm">
-                                <l-icon name="check-circle-2" class="w-3.5 h-3.5"></l-icon> 客戶已同意 · 標記完修
-                            </button>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button v-if="ticket.quoteState === '同意報價'" @click="quickChangeStatus(ticket, '完修')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-sm">
+                                    <l-icon name="check-circle-2" class="w-3.5 h-3.5"></l-icon> 客戶已同意 · 標記完修
+                                </button>
+                                <button @click="quickChangeStatus(ticket, '取消叫修')" class="bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-300 hover:border-rose-300 px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors">
+                                    <l-icon name="x-circle" class="w-3.5 h-3.5"></l-icon> 取消叫修
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -649,12 +657,22 @@ window.onerror = function(msg, url, line, col, error) {
 
                     <!-- 現場照片與報價單附件上傳區 -->
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <label class="label-style m-0">現場照片 / 報價單附件 ({{ (editData.attachments || []).length }} / 10)</label>
-                            <label class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shadow-sm">
-                                <l-icon name="camera" class="w-3.5 h-3.5"></l-icon> 拍照 / 上傳檔案
-                                <input type="file" accept="image/*,application/pdf,.pdf" multiple class="hidden" @change="handleImageUpload" />
-                            </label>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <label class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                                    <l-icon name="image" class="w-3.5 h-3.5"></l-icon> 手機相簿
+                                    <input type="file" accept="image/*" multiple class="hidden" @change="handleImageUpload" />
+                                </label>
+                                <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 shadow-sm active:scale-95 transition-all">
+                                    <l-icon name="camera" class="w-3.5 h-3.5"></l-icon> 立即拍照
+                                    <input type="file" accept="image/*" capture="environment" class="hidden" @change="handleImageUpload" />
+                                </label>
+                                <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1 active:scale-95 transition-all">
+                                    <l-icon name="file-text" class="w-3.5 h-3.5 text-rose-600"></l-icon> PDF 檔案
+                                    <input type="file" accept="application/pdf,.pdf" multiple class="hidden" @change="handleImageUpload" />
+                                </label>
+                            </div>
                         </div>
 
                         <div v-if="isUploadingImage" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse">
