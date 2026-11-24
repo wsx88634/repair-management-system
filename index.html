@@ -84,19 +84,17 @@ window.onerror = function(msg, url, line, col, error) {
 
         <!-- 能隱藏的左側資訊欄 -->
         <aside class="fixed top-0 left-0 h-screen w-72 bg-white border-r border-slate-200/80 shadow-xl z-40 flex flex-col justify-between transition-transform duration-300 ease-in-out" :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
-            <!-- 側欄頂部標題與隱藏按鈕 (企業品牌深藍+LOGO) -->
+            <!-- 側欄頂部標題與隱藏按鈕 (白底配色 + 無外框放大公司 LOGO) -->
             <div class="shrink-0">
-                <div class="p-4 flex items-center justify-between bg-gradient-to-r from-[#0F1B44] via-[#132356] to-[#0B4F7A] text-white">
+                <div class="p-4 flex items-center justify-between bg-white text-[#0F1B44]">
                     <div class="flex items-center gap-2.5">
-                        <div class="bg-white p-1 rounded-xl shadow-sm flex items-center justify-center shrink-0">
-                            <img src="./logo.png" alt="Inno 公司 LOGO" class="w-8 h-8 object-contain" />
-                        </div>
+                        <img src="./logo.png" alt="Inno 公司 LOGO" class="w-12 h-12 object-contain shrink-0" />
                         <div>
-                            <h2 class="text-sm font-extrabold text-white tracking-tight">管理與資訊欄</h2>
-                            <p class="text-[11px] text-sky-200 font-medium">系統設定與功能捷徑</p>
+                            <h2 class="text-sm font-extrabold text-[#0F1B44] tracking-tight">管理與資訊欄</h2>
+                            <p class="text-[11px] text-[#0082C3] font-semibold">系統設定與功能捷徑</p>
                         </div>
                     </div>
-                    <button @click="toggleSidebar" title="隱藏左側資訊欄" class="flex items-center gap-1 text-xs font-bold text-white/90 hover:text-white bg-white/15 hover:bg-white/25 px-2.5 py-1.5 rounded-xl border border-white/20 transition-all active:scale-95">
+                    <button @click="toggleSidebar" title="隱藏左側資訊欄" class="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-[#0F1B44] bg-slate-50 hover:bg-sky-50 px-2.5 py-1.5 rounded-xl border border-slate-200/80 transition-all active:scale-95">
                         <l-icon name="chevrons-left" class="w-4 h-4"></l-icon> 隱藏
                     </button>
                 </div>
@@ -233,9 +231,7 @@ window.onerror = function(msg, url, line, col, error) {
                         <button @click="toggleSidebar" :title="isSidebarOpen ? '隱藏左側資訊欄' : '展開左側資訊欄'" class="p-2.5 rounded-xl border transition-all flex items-center justify-center shrink-0 shadow-2xs active:scale-95" :class="isSidebarOpen ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200' : 'bg-sky-50 text-[#132356] border-sky-200 hover:bg-sky-100'">
                             <l-icon :name="isSidebarOpen ? 'panel-left-close' : 'panel-left-open'" class="w-5 h-5"></l-icon>
                         </button>
-                        <div class="bg-white p-1 rounded-xl border border-slate-200/90 shadow-xs shrink-0 flex items-center justify-center">
-                            <img src="./logo.png" alt="Inno 公司 LOGO" class="w-9 h-9 object-contain" />
-                        </div>
+                        <img src="./logo.png" alt="Inno 公司 LOGO" class="w-14 h-14 object-contain shrink-0" />
                         <h1 class="text-xl md:text-2xl font-extrabold text-[#0F1B44] whitespace-nowrap">
                             叫修輔助管理面板
                         </h1>
