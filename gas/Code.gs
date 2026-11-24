@@ -93,8 +93,9 @@ function doGet(e) {
   try {
     const { ticketSheet, sysSheet } = getDbSheets();
 
-    // 讀取工程師名單 (若系統檔為舊假名單，自動矯正為 9 位團隊成員)
+    // 讀取工程師名單與帳號設定
     let engineers = [...DEFAULT_ENGINEERS];
+    let engineerAccounts = {};
     const sysData = sysSheet.getDataRange().getValues();
     let sysEngRowIndex = -1;
     for (let i = 1; i < sysData.length; i++) {
@@ -103,12 +104,20 @@ function doGet(e) {
         if (sysData[i][1]) {
           try {
             const parsed = JSON.parse(sysData[i][1]);
-            if (Array.isArray(parsed) && parsed.length >= 8) {
+            if (Array.isArray(parsed) && parsed.length >= 1) {
               engineers = parsed;
             }
           } catch(ex) {}
         }
-        break;
+      } else if (sysData[i][0] === "engineer_accounts") {
+        if (sysData[i][1]) {
+          try {
+            const parsedAcc = JSON.parse(sysData[i][1]);
+            if (parsedAcc && typeof parsedAcc === "object") {
+              engineerAccounts = parsedAcc;
+            }
+          } catch(ex) {}
+        }
       }
     }
 
@@ -164,7 +173,8 @@ function doGet(e) {
     return respondJSON({
       status: "success",
       tickets: tickets,
-      engineers: engineers
+      engineers: engineers,
+      engineerAccounts: engineerAccounts
     });
   } catch (err) {
     return respondJSON({ status: "error", message: err.toString() });
@@ -211,7 +221,46 @@ function doPost(e) {
 
     const { ticketSheet, sysSheet } = getDbSheets();
 
-    // 1. 更新工程師團隊
+    // 0.5 工程師登入驗證 (記錄最後登入時間並回傳憑證版本)
+    if (body.action === "engineerLogin" && body.engineer) {
+      const targetEng = String(body.engineer).trim();
+      const inputPwd = String(body.password || "").trim();
+      const sysData = sysSheet.getDataRange().getValues();
+      let accRowIndex = -1;
+      let accounts = {};
+      for (let i = 1; i < sysData.length; i++) {
+        if (sysData[i][0] === "engineer_accounts") {
+          accRowIndex = i + 1;
+          try { accounts = JSON.parse(sysData[i][1] || "{}"); } catch (ex) { accounts = {}; }
+          break;
+        }
+      }
+      const acc = accounts[targetEng] || { password: "1234", active: true, tokenVersion: 1, lastLogin: "" };
+      if (acc.active === false) {
+        return respondJSON({ status: "error", code: "ACCOUNT_DISABLED", message: "此帳號已被管理者停用，請聯絡主管。" });
+      }
+      const expectedPwd = String(acc.password || "1234").trim();
+      if (inputPwd !== expectedPwd) {
+        return respondJSON({ status: "error", code: "WRONG_PASSWORD", message: "密碼不正確，請重新輸入。" });
+      }
+      acc.lastLogin = formatDate(new Date());
+      if (!acc.tokenVersion) acc.tokenVersion = 1;
+      accounts[targetEng] = acc;
+      const accJson = JSON.stringify(accounts);
+      if (accRowIndex > 0) {
+        sysSheet.getRange(accRowIndex, 2).setValue(accJson);
+      } else {
+        sysSheet.appendRow(["engineer_accounts", accJson]);
+      }
+      return respondJSON({
+        status: "success",
+        engineer: targetEng,
+        tokenVersion: acc.tokenVersion,
+        lastLogin: acc.lastLogin
+      });
+    }
+
+    // 1. 更新工程師團隊與帳號設定
     if (body.engineers && Array.isArray(body.engineers) && body.engineers.length > 0) {
       const sysData = sysSheet.getDataRange().getValues();
       let engRowIndex = -1;
@@ -226,6 +275,23 @@ function doPost(e) {
         sysSheet.getRange(engRowIndex, 2).setValue(jsonStr);
       } else {
         sysSheet.appendRow(["engineers", jsonStr]);
+      }
+    }
+
+    if (body.engineerAccounts && typeof body.engineerAccounts === "object") {
+      const sysData = sysSheet.getDataRange().getValues();
+      let accRowIndex = -1;
+      for (let i = 1; i < sysData.length; i++) {
+        if (sysData[i][0] === "engineer_accounts") {
+          accRowIndex = i + 1;
+          break;
+        }
+      }
+      const accJson = JSON.stringify(body.engineerAccounts);
+      if (accRowIndex > 0) {
+        sysSheet.getRange(accRowIndex, 2).setValue(accJson);
+      } else {
+        sysSheet.appendRow(["engineer_accounts", accJson]);
       }
     }
 

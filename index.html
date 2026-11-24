@@ -1990,28 +1990,28 @@ window.onerror = function(msg, url, line, col, error) {
 
         <!-- 團隊管理 Modal -->
         <div v-if="showEngModal" class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200 max-h-[90vh]">
                 <div class="bg-slate-50 px-6 py-4 flex justify-between items-center border-b border-slate-200">
                     <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <l-icon name="users" class="w-5 h-5 text-slate-700"></l-icon> 團隊成員名單管理
+                        <l-icon name="users" class="w-5 h-5 text-slate-700"></l-icon> 團隊成員名單與個人密碼管理
                     </h2>
-                    <button @click="showEngModal = false" class="text-slate-400 hover:text-slate-700 bg-white p-1 rounded-full border border-slate-200">
+                    <button @click="showEngModal = false; authEditEngName = ''" class="text-slate-400 hover:text-slate-700 bg-white p-1 rounded-full border border-slate-200">
                         <l-icon name="x" class="w-5 h-5"></l-icon>
                     </button>
                 </div>
                 
-                <div class="p-6 space-y-4">
+                <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                     <div class="flex gap-2">
                         <input v-model="newEngName" placeholder="輸入新工程師姓名" class="input-style flex-1" @keyup.enter="addEngineer" />
                         <button @click="addEngineer" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm whitespace-nowrap">新增</button>
                     </div>
 
-                    <div class="text-xs text-slate-500 bg-blue-50/70 border border-blue-100 rounded-xl px-3 py-2 flex items-center gap-1.5 font-medium">
-                        <l-icon name="info" class="w-4 h-4 text-blue-500 shrink-0"></l-icon>
-                        <span>可拖曳左側把手或點擊上下箭頭調整順序，主看板與選單將即時同步更新並儲存至雲端。</span>
+                    <div class="text-xs text-slate-500 bg-blue-50/70 border border-blue-100 rounded-xl px-3.5 py-2.5 flex items-start gap-2 font-medium leading-relaxed">
+                        <l-icon name="key-round" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></l-icon>
+                        <span>點選每位工程師右側的 <b>「密碼」</b> 按鈕可設定專屬登入密碼（預設 <code class="bg-white px-1 rounded border border-blue-200 font-bold text-blue-700">1234</code>）或停用離職帳號；拖曳左側把手或點上下箭頭可調整看板排序。</span>
                     </div>
 
-                    <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+                    <div class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
                         <div
                             v-for="(eng, idx) in engineers"
                             :key="eng"
@@ -2021,53 +2021,100 @@ window.onerror = function(msg, url, line, col, error) {
                             @dragleave="dragOverEngIndex === idx && (dragOverEngIndex = -1)"
                             @drop.prevent="onEngDrop(idx)"
                             @dragend="draggingEngIndex = -1; dragOverEngIndex = -1"
-                            class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-white rounded-xl border transition-all gap-2"
+                            class="bg-slate-50 hover:bg-white rounded-xl border transition-all overflow-hidden"
                             :class="{
                                 'opacity-50 scale-[0.98] border-blue-300': draggingEngIndex === idx,
                                 'border-blue-500 bg-blue-50/60 ring-2 ring-blue-200': dragOverEngIndex === idx && draggingEngIndex !== idx,
                                 'border-slate-200/80': draggingEngIndex !== idx && dragOverEngIndex !== idx
                             }"
                         >
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
-                                <span class="text-slate-400 cursor-grab active:cursor-grabbing p-1 hover:text-slate-600 shrink-0" title="按住拖曳調整順序">
-                                    <l-icon name="grip-vertical" class="w-4 h-4"></l-icon>
-                                </span>
-                                <span class="text-[11px] font-black text-slate-500 bg-white border border-slate-200 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 shadow-2xs">
-                                    {{ idx + 1 }}
-                                </span>
-                                <span v-if="editEngIndex !== idx" class="font-bold text-slate-800 text-sm truncate">{{ eng }}</span>
-                                <input v-else v-model="editEngName" class="input-style py-1 px-2 text-sm max-w-[140px]" @keyup.enter="saveEngineerEdit(idx)" />
+                            <div class="flex items-center justify-between p-2.5 gap-2">
+                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                                    <span class="text-slate-400 cursor-grab active:cursor-grabbing p-1 hover:text-slate-600 shrink-0" title="按住拖曳調整順序">
+                                        <l-icon name="grip-vertical" class="w-4 h-4"></l-icon>
+                                    </span>
+                                    <span class="text-[11px] font-black text-slate-500 bg-white border border-slate-200 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 shadow-2xs">
+                                        {{ idx + 1 }}
+                                    </span>
+                                    <div v-if="editEngIndex !== idx" class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="font-bold text-slate-800 text-sm truncate">{{ eng }}</span>
+                                            <span v-if="getEngineerAccount(eng).active === false" class="text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded-md">已停用</span>
+                                        </div>
+                                        <div v-if="getEngineerAccount(eng).lastLogin" class="text-[10px] text-slate-400 font-medium">最近登入：{{ getEngineerAccount(eng).lastLogin }}</div>
+                                    </div>
+                                    <input v-else v-model="editEngName" class="input-style py-1 px-2 text-sm max-w-[160px]" @keyup.enter="saveEngineerEdit(idx)" />
+                                </div>
+
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button
+                                        @click="openEngAuthEditor(eng)"
+                                        class="px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-colors"
+                                        :class="authEditEngName === eng ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200 shadow-2xs'"
+                                        title="設定工程師個人登入密碼與啟用狀態"
+                                    >
+                                        <l-icon name="key-round" class="w-3.5 h-3.5"></l-icon> 密碼
+                                    </button>
+                                    <button
+                                        @click="moveEngineer(idx, -1)"
+                                        :disabled="idx === 0"
+                                        class="p-1.5 rounded-lg border transition-colors"
+                                        :class="idx === 0 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
+                                        title="往上移一位"
+                                    >
+                                        <l-icon name="chevron-up" class="w-3.5 h-3.5"></l-icon>
+                                    </button>
+                                    <button
+                                        @click="moveEngineer(idx, 1)"
+                                        :disabled="idx === engineers.length - 1"
+                                        class="p-1.5 rounded-lg border transition-colors"
+                                        :class="idx === engineers.length - 1 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
+                                        title="往下移一位"
+                                    >
+                                        <l-icon name="chevron-down" class="w-3.5 h-3.5"></l-icon>
+                                    </button>
+                                    <button v-if="editEngIndex !== idx" @click="startEditEngineer(idx, eng)" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="修改名稱"><l-icon name="edit-2" class="w-4 h-4"></l-icon></button>
+                                    <button v-else @click="saveEngineerEdit(idx)" class="text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-1 rounded border border-emerald-200">儲存</button>
+                                    <button @click="confirmDeleteEngineer(idx)" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="移除成員"><l-icon name="trash-2" class="w-4 h-4"></l-icon></button>
+                                </div>
                             </div>
 
-                            <div class="flex items-center gap-1 shrink-0">
-                                <button
-                                    @click="moveEngineer(idx, -1)"
-                                    :disabled="idx === 0"
-                                    class="p-1.5 rounded-lg border transition-colors"
-                                    :class="idx === 0 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
-                                    title="往上移一位"
-                                >
-                                    <l-icon name="chevron-up" class="w-3.5 h-3.5"></l-icon>
-                                </button>
-                                <button
-                                    @click="moveEngineer(idx, 1)"
-                                    :disabled="idx === engineers.length - 1"
-                                    class="p-1.5 rounded-lg border transition-colors"
-                                    :class="idx === engineers.length - 1 ? 'text-slate-300 border-transparent cursor-not-allowed' : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50 bg-white border-slate-200 shadow-2xs'"
-                                    title="往下移一位"
-                                >
-                                    <l-icon name="chevron-down" class="w-3.5 h-3.5"></l-icon>
-                                </button>
-                                <button v-if="editEngIndex !== idx" @click="startEditEngineer(idx, eng)" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="修改名稱"><l-icon name="edit-2" class="w-4 h-4"></l-icon></button>
-                                <button v-else @click="saveEngineerEdit(idx)" class="text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-1 rounded border border-emerald-200">儲存</button>
-                                <button @click="confirmDeleteEngineer(idx)" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="移除成員"><l-icon name="trash-2" class="w-4 h-4"></l-icon></button>
+                            <!-- 展開的工程師專屬密碼與帳號狀態設定區 -->
+                            <div v-if="authEditEngName === eng" class="px-4 py-3 bg-amber-50/70 border-t border-amber-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-2 flex-1">
+                                    <span class="text-xs font-bold text-amber-900 whitespace-nowrap">登入密碼：</span>
+                                    <div class="relative flex-1 max-w-[180px]">
+                                        <input
+                                            v-model="authEditForm.password"
+                                            :type="authEditForm.showPwd ? 'text' : 'password'"
+                                            placeholder="設定 4~12 碼密碼"
+                                            class="input-style py-1.5 px-2.5 pr-8 text-xs font-bold bg-white"
+                                            @keyup.enter="saveEngAuthSettings(eng)"
+                                        />
+                                        <button @click="authEditForm.showPwd = !authEditForm.showPwd" type="button" class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-700">
+                                            <l-icon :name="authEditForm.showPwd ? 'eye-off' : 'eye'" class="w-3.5 h-3.5"></l-icon>
+                                        </button>
+                                    </div>
+                                    <button
+                                        @click="authEditForm.active = !authEditForm.active"
+                                        type="button"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-extrabold border transition-colors whitespace-nowrap"
+                                        :class="authEditForm.active ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-rose-100 text-rose-700 border-rose-300'"
+                                    >
+                                        {{ authEditForm.active ? '✅ 啟用中' : '🚫 已停用' }}
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-1.5 justify-end">
+                                    <button @click="authEditEngName = ''" type="button" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-200/70">取消</button>
+                                    <button @click="saveEngAuthSettings(eng)" type="button" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-blue-600 hover:bg-blue-700 text-white shadow-sm">儲存並同步</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-200">
-                    <button @click="showEngModal = false" class="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-sm font-semibold">完成</button>
+                    <button @click="showEngModal = false; authEditEngName = ''" class="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-sm font-semibold">完成</button>
                 </div>
             </div>
         </div>
@@ -2302,6 +2349,65 @@ window.onerror = function(msg, url, line, col, error) {
                 const localEngs = localStorage.getItem("local_repair_engineers_v2");
                 const initialEngs = localEngs ? JSON.parse(localEngs) : defaultEngineers;
                 const engineers = ref([...initialEngs]);
+
+                const localEngAccounts = (() => {
+                    try {
+                        const raw = localStorage.getItem("local_repair_engineer_accounts_v1");
+                        return raw ? JSON.parse(raw) : {};
+                    } catch (e) { return {}; }
+                })();
+                const engineerAccounts = ref(localEngAccounts && typeof localEngAccounts === 'object' ? localEngAccounts : {});
+                const authEditEngName = ref('');
+                const authEditForm = reactive({ password: '', active: true, showPwd: false });
+
+                const getEngineerAccount = (engName) => {
+                    const acc = engineerAccounts.value && engineerAccounts.value[engName];
+                    if (acc && typeof acc === 'object') {
+                        return {
+                            password: String(acc.password || '1234'),
+                            active: acc.active !== false,
+                            tokenVersion: Number(acc.tokenVersion) || 1,
+                            lastLogin: acc.lastLogin || ''
+                        };
+                    }
+                    return { password: '1234', active: true, tokenVersion: 1, lastLogin: '' };
+                };
+
+                const openEngAuthEditor = (engName) => {
+                    if (authEditEngName.value === engName) {
+                        authEditEngName.value = '';
+                        return;
+                    }
+                    const acc = getEngineerAccount(engName);
+                    authEditForm.password = acc.password;
+                    authEditForm.active = acc.active;
+                    authEditForm.showPwd = false;
+                    authEditEngName.value = engName;
+                };
+
+                const saveEngAuthSettings = async (engName) => {
+                    const pwd = String(authEditForm.password || '').trim();
+                    if (!pwd || pwd.length < 4) {
+                        confirmDialog.title = "密碼格式提醒";
+                        confirmDialog.message = "請輸入至少 4 碼的專屬登入密碼！";
+                        confirmDialog.isWarning = true;
+                        confirmDialog.isOpen = true;
+                        return;
+                    }
+                    const oldAcc = getEngineerAccount(engName);
+                    const needBumpToken = oldAcc.password !== pwd || oldAcc.active !== authEditForm.active;
+                    engineerAccounts.value = {
+                        ...engineerAccounts.value,
+                        [engName]: {
+                            password: pwd,
+                            active: authEditForm.active,
+                            tokenVersion: needBumpToken ? (oldAcc.tokenVersion + 1) : oldAcc.tokenVersion,
+                            lastLogin: oldAcc.lastLogin || ''
+                        }
+                    };
+                    authEditEngName.value = '';
+                    await saveData();
+                };
 
                 const getDeletedTicketIds = () => {
                     try {
@@ -2956,6 +3062,10 @@ window.onerror = function(msg, url, line, col, error) {
                             engineers.value = data.engineers;
                             localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
                         }
+                        if (data.engineerAccounts && typeof data.engineerAccounts === 'object' && Object.keys(data.engineerAccounts).length > 0) {
+                            engineerAccounts.value = data.engineerAccounts;
+                            localStorage.setItem("local_repair_engineer_accounts_v1", JSON.stringify(engineerAccounts.value));
+                        }
 
                         isApiConnected.value = true;
                     } catch (error) {
@@ -3012,7 +3122,7 @@ window.onerror = function(msg, url, line, col, error) {
                                 mode: 'cors',
                                 credentials: 'omit',
                                 headers: { "Content-Type": "text/plain;charset=utf-8" },
-                                body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value })
+                                body: JSON.stringify({ tickets: payloadTickets, engineers: engineers.value, engineerAccounts: engineerAccounts.value })
                             }, 2, 500, 15000);
                             const text = await res.text();
                             try { JSON.parse(text); } catch (e) {}
@@ -3040,7 +3150,7 @@ window.onerror = function(msg, url, line, col, error) {
                             const input = document.createElement('input');
                             input.type = 'hidden';
                             input.name = 'payload';
-                            input.value = JSON.stringify({ tickets: payloadTickets, engineers: engineers.value });
+                            input.value = JSON.stringify({ tickets: payloadTickets, engineers: engineers.value, engineerAccounts: engineerAccounts.value });
                             form.appendChild(input);
                             
                             document.body.appendChild(form);
@@ -3075,6 +3185,7 @@ window.onerror = function(msg, url, line, col, error) {
                 const saveData = async (isManualSync = false) => {
                     localStorage.setItem("local_repair_tickets_v2", JSON.stringify(tickets.value));
                     localStorage.setItem("local_repair_engineers_v2", JSON.stringify(engineers.value));
+                    localStorage.setItem("local_repair_engineer_accounts_v1", JSON.stringify(engineerAccounts.value));
 
                     if (!apiUrl.value) return;
 
@@ -4498,6 +4609,7 @@ window.onerror = function(msg, url, line, col, error) {
                     onFormDetailsInput, onFormIssueInput, onEditDetailsInput, onEditIssueInput,
                     showEngModal, newEngName, editEngIndex, editEngName, addEngineer, startEditEngineer, saveEngineerEdit, confirmDeleteEngineer,
                     draggingEngIndex, dragOverEngIndex, moveEngineer, onEngDragStart, onEngDrop,
+                    engineerAccounts, authEditEngName, authEditForm, getEngineerAccount, openEngAuthEditor, saveEngAuthSettings,
                     selectedTicket, editData, openTicketModal, closeTicketModal, saveTicketModal, getDisplayLogs,
                     confirmDialog, executeConfirm, isLoading,
                     confirmArchiveTicket, unarchiveTicket, confirmHardDeleteTicket, confirmBatchArchive,
