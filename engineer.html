@@ -796,7 +796,14 @@ window.onerror = function(msg, url, line, col, error) {
 
         const App = {
             setup() {
-                const API_URL = localStorage.getItem("gas_repair_api_url") || "https://script.google.com/macros/s/AKfycbzfYZJIjZU2tsO1X5PMiqkDD7lsuJNgOcP1KfE6kn3okznCBd7Klct3sOgOZ8UpoHOsdg/exec";
+                const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyCqXgTZNYyM8hbHYqM_cyz0-yVWmloUoz8tjbRqxcEEDufuHcZAmZSECobh-YEhCFZ/exec";
+                const OLD_DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbzfYZJIjZU2tsO1X5PMiqkDD7lsuJNgOcP1KfE6kn3okznCBd7Klct3sOgOZ8UpoHOsdg/exec";
+                let savedApiUrl = localStorage.getItem("gas_repair_api_url");
+                if (!savedApiUrl || savedApiUrl === OLD_DEFAULT_API_URL) {
+                    savedApiUrl = DEFAULT_API_URL;
+                    localStorage.setItem("gas_repair_api_url", DEFAULT_API_URL);
+                }
+                const API_URL = savedApiUrl;
                 const SESSION_KEY = "engineer_auth_session_v1";
                 const statuses = ["未執行", "未完成 / 另約時間", "報價", "完修", "取消叫修"];
                 const defaultEngineers = ["廖聖典 Max", "劉峻宇 Otto", "陳柏凱 Kevin", "林正賢 Jeff", "陳祐嘉 Dean", "邱信豪 Mars", "楊棟嘉 Ken", "劉明忠 Yuie", "葉幸忠 Sc.yeh"];
