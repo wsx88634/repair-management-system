@@ -21,6 +21,10 @@
     <!-- Chart.js 工程師績效分析圖表 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+    <!-- SheetJS (Excel 匯入解析) & jsPDF (老闆評估報告 PDF 匯出) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
     <style type="text/tailwindcss">
         @layer utilities {
             .input-style {
@@ -175,6 +179,20 @@ window.onerror = function(msg, url, line, col, error) {
                         </span>
                         <span v-if="activeView === 'analytics'" class="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full">目前頁面</span>
                         <l-icon v-else name="chevron-right" class="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform"></l-icon>
+                    </button>
+
+                    <button @click="openExcelPerfPage" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.99] group" :class="activeView === 'excelPerf' ? 'bg-gradient-to-r from-[#0F1B44] to-[#009CE0] text-white shadow-md shadow-[#0F1B44]/25 ring-2 ring-[#009CE0]/40' : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'">
+                        <span class="flex items-center gap-2.5">
+                            <l-icon name="file-bar-chart-2" class="w-4 h-4"></l-icon>
+                            <span>績效分析</span>
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <span v-if="activeView === 'excelPerf'" class="text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full">目前頁面</span>
+                            <span v-else class="text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1" :class="isExcelPerfAuthenticated ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-amber-200/80 text-amber-900'">
+                                <l-icon :name="isExcelPerfAuthenticated ? 'unlock' : 'lock'" class="w-3 h-3"></l-icon>
+                                {{ isExcelPerfAuthenticated ? '已解鎖' : '助理專用' }}
+                            </span>
+                        </div>
                     </button>
                 </div>
 
@@ -1526,6 +1544,593 @@ window.onerror = function(msg, url, line, col, error) {
             </div>
             </template>
 
+            <!-- ====================================================================== -->
+            <!-- 助理專用：績效分析中心 (匯入 Excel 產出維修時間與當日路程老闆評估報告 + PDF) -->
+            <!-- ====================================================================== -->
+            <template v-else-if="activeView === 'excelPerf'">
+                <div class="space-y-6">
+                    <!-- 隱藏檔案選擇器 -->
+                    <input
+                        id="excel-perf-file-input"
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        class="hidden"
+                        @change="handleExcelPerfFileChange"
+                    />
+
+                    <!-- 頂部功能操作列 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                        <div class="h-1 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
+                        <div class="p-5 md:p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div class="flex items-center gap-3.5">
+                                <div class="bg-gradient-to-br from-[#0F1B44] to-[#009CE0] text-white p-3 rounded-2xl shadow-md shadow-[#0F1B44]/20 shrink-0">
+                                    <l-icon name="file-bar-chart-2" class="w-6 h-6"></l-icon>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h2 class="text-xl font-black text-[#0F1B44]">績效分析中心（老闆評估專用報表）</h2>
+                                        <span class="text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                            <l-icon name="shield-check" class="w-3.5 h-3.5"></l-icon> 助理已驗證
+                                        </span>
+                                        <span v-if="excelPerfFileName" class="text-[11px] font-bold bg-sky-50 text-[#0082C3] border border-sky-200 px-2.5 py-0.5 rounded-full">
+                                            📄 {{ excelPerfFileName }}（{{ excelPerfRawRecords.length }} 筆）
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 font-medium mt-1">
+                                        匯入叫修歸還 Excel 報表，自動分析「每筆維修耗時」、「當日跑單路程距離（km）」與「地區里程基數」，支援檢閱後一鍵下載 A4 PDF 呈報老闆。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+                                <button @click="triggerExcelPerfUpload" type="button" class="bg-gradient-to-r from-[#132356] to-[#009CE0] hover:from-[#0F1B44] hover:to-[#0284C7] text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-[#132356]/20 transition-all active:scale-95">
+                                    <l-icon name="upload" class="w-4 h-4"></l-icon>
+                                    {{ excelPerfRawRecords.length > 0 ? '重新匯入 Excel' : '匯入 Excel 報表' }}
+                                </button>
+                                <button
+                                    v-if="excelPerfRawRecords.length > 0"
+                                    @click="refineExcelPerfRealRoad"
+                                    :disabled="excelPerfGeoRefining"
+                                    type="button"
+                                    title="透過免費開源路網 API 進一步校正詳細門牌地址與真實行車公里數"
+                                    class="bg-sky-50 hover:bg-sky-100 disabled:opacity-60 text-[#0F1B44] border border-sky-200 px-3.5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all active:scale-95"
+                                >
+                                    <l-icon :name="excelPerfGeoRefining ? 'refresh-cw' : 'map-pin'" class="w-4 h-4 text-[#009CE0]" :class="excelPerfGeoRefining ? 'animate-spin' : ''"></l-icon>
+                                    {{ excelPerfGeoRefining ? excelPerfGeoStatusText : '地址路網精準校正' }}
+                                </button>
+                                <button
+                                    v-if="excelPerfFilteredRecords.length > 0"
+                                    @click="exportExcelPerfPDF"
+                                    :disabled="isExportingExcelPerfPDF"
+                                    type="button"
+                                    class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                                >
+                                    <l-icon :name="isExportingExcelPerfPDF ? 'refresh-cw' : 'file-down'" class="w-4 h-4" :class="isExportingExcelPerfPDF ? 'animate-spin' : ''"></l-icon>
+                                    {{ isExportingExcelPerfPDF ? excelPerfPdfProgressText : '下載 PDF 報告' }}
+                                </button>
+                                <button @click="lockExcelPerfPage" type="button" class="bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all active:scale-95" title="離開座位時可一鍵重新鎖定">
+                                    <l-icon name="lock" class="w-3.5 h-3.5"></l-icon> 上鎖
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 篩選與路程計算控制條 (有資料時顯示) -->
+                        <div v-if="excelPerfRawRecords.length > 0" class="px-5 md:px-6 py-4 bg-slate-50/90 border-t border-slate-200/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
+                            <div>
+                                <label class="text-[11px] font-extrabold text-slate-500 block mb-1">負責工程師篩選</label>
+                                <select v-model="excelPerfFilters.engineer" class="input-style bg-white py-2 text-xs font-bold">
+                                    <option value="all">全部工程師（共 {{ excelPerfEngineerList.length }} 位）</option>
+                                    <option v-for="eng in excelPerfEngineerList" :key="eng" :value="eng">{{ eng }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-extrabold text-slate-500 block mb-1">案件類型</label>
+                                <select v-model="excelPerfFilters.repairType" class="input-style bg-white py-2 text-xs font-bold">
+                                    <option value="all">全部類型（叫修 / 交機等）</option>
+                                    <option v-for="tp in excelPerfTypeList" :key="tp" :value="tp">{{ tp }}</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[11px] font-extrabold text-slate-500 block mb-1">完修起始日</label>
+                                    <input type="date" v-model="excelPerfFilters.startDate" class="input-style bg-white py-2 text-xs font-bold" />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-extrabold text-slate-500 block mb-1">完修結束日</label>
+                                    <input type="date" v-model="excelPerfFilters.endDate" class="input-style bg-white py-2 text-xs font-bold" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-extrabold text-slate-500 block mb-1">當日路程計算模式</label>
+                                <select v-model="excelPerfDistanceMode" class="input-style bg-white py-2 text-xs font-bold">
+                                    <option value="point-to-point">僅計算案件點對點巡迴 (站1→站2→…)</option>
+                                    <option value="round-trip">含公司據點出發與返程 (據點→各站→據點)</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="text-[11px] font-extrabold text-slate-500 block mb-1">駐點 / 基數歸屬區</label>
+                                    <select v-model="excelPerfBaseRegion" class="input-style bg-white py-2 text-xs font-bold">
+                                        <option value="auto">自動依案件分布判斷</option>
+                                        <option value="南區">南區（高雄駐點）</option>
+                                        <option value="中區">中區（台中駐點）</option>
+                                        <option value="北區">北區（新北/台北駐點）</option>
+                                    </select>
+                                </div>
+                                <button @click="resetExcelPerfFilters" type="button" class="bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold shrink-0" title="重設所有篩選條件">
+                                    重設
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 錯誤或狀態通知條 -->
+                    <div v-if="excelPerfError" class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <l-icon name="alert-circle" class="w-4 h-4 shrink-0"></l-icon>
+                        <span>{{ excelPerfError }}</span>
+                    </div>
+                    <div v-if="excelPerfNotice" class="bg-sky-50 border border-sky-200 text-[#0F1B44] px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-between gap-2">
+                        <span class="flex items-center gap-2">
+                            <l-icon name="info" class="w-4 h-4 text-[#009CE0] shrink-0"></l-icon>
+                            <span>{{ excelPerfNotice }}</span>
+                        </span>
+                        <button @click="excelPerfNotice = ''" class="text-slate-400 hover:text-slate-700"><l-icon name="x" class="w-4 h-4"></l-icon></button>
+                    </div>
+
+                    <!-- 尚未匯入時的拖曳上傳引導區 -->
+                    <div
+                        v-if="excelPerfRawRecords.length === 0"
+                        @click="triggerExcelPerfUpload"
+                        @dragover.prevent="isExcelPerfDragging = true"
+                        @dragleave="isExcelPerfDragging = false"
+                        @drop.prevent="handleExcelPerfDrop"
+                        class="bg-white rounded-3xl border-2 border-dashed p-10 md:p-16 text-center cursor-pointer transition-all shadow-sm"
+                        :class="isExcelPerfDragging ? 'border-[#009CE0] bg-sky-50/70 scale-[1.005]' : 'border-slate-300 hover:border-[#009CE0] hover:bg-sky-50/30'"
+                    >
+                        <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-[#EBF5FC] to-sky-100 border border-sky-200 flex items-center justify-center mb-5 shadow-sm">
+                            <l-icon name="file-spreadsheet" class="w-10 h-10 text-[#009CE0]"></l-icon>
+                        </div>
+                        <h3 class="text-xl font-black text-[#0F1B44]">點此選擇或拖曳匯入 Excel 報表（.xlsx / .xls）</h3>
+                        <p class="text-sm text-slate-500 font-medium mt-2 max-w-xl mx-auto">
+                            支援公司 ERP 叫修歸還報表格式（如 <code class="bg-slate-100 px-1.5 py-0.5 rounded font-bold text-[#0F1B44]">報表22.xlsx</code>），匯入後立即產生維修時間與當日路程視覺化圖表，全程於本機瀏覽器運算不外流。
+                        </p>
+                        <div class="mt-6 inline-flex flex-wrap justify-center gap-2 text-[11px] font-bold text-slate-600 max-w-2xl">
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">叫修單單號</span>
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">完修日期</span>
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">業務員名稱（工程師）</span>
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">區 / 地（地址）</span>
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">維修時間起 / 迄 / 維修時間</span>
+                            <span class="bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">零件產品名稱</span>
+                            <span class="bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1 rounded-full">工作表 2：地區里程基數表</span>
+                        </div>
+                        <div class="mt-7">
+                            <span class="inline-flex items-center gap-2 bg-gradient-to-r from-[#132356] to-[#009CE0] text-white px-7 py-3 rounded-2xl text-sm font-extrabold shadow-lg shadow-[#132356]/25">
+                                <l-icon name="folder-open" class="w-4 h-4"></l-icon> 選擇 Excel 檔案開始分析
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- 已匯入資料：老闆績效評估視覺化儀表板 (PDF 匯出對象區域) -->
+                    <!-- ========================================================= -->
+                    <div v-else id="excel-perf-report-root" class="space-y-6">
+
+                        <!-- PDF 區塊 1：報告封面標頭 + 6 大核心 KPI -->
+                        <div data-pdf-section="header-kpi" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                            <div class="h-1.5 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
+                            <div class="p-6 space-y-5">
+                                <!-- 報告標題橫幅 -->
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
+                                    <div class="flex items-center gap-3.5">
+                                        <img src="./logo.png" alt="Inno LOGO" class="w-14 h-14 object-contain shrink-0" />
+                                        <div>
+                                            <div class="text-[11px] font-extrabold text-[#009CE0] tracking-wider uppercase">ENGINEER PERFORMANCE &amp; ROUTE ANALYTICS REPORT</div>
+                                            <h3 class="text-xl md:text-2xl font-black text-[#0F1B44] tracking-tight">工程師維修工時與行車路程績效評估報告</h3>
+                                            <div class="text-xs text-slate-500 font-semibold mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                <span>📅 統計區間：<b>{{ excelPerfSummary.dateRangeText }}</b></span>
+                                                <span>👷 評估對象：<b>{{ excelPerfFilters.engineer === 'all' ? '全體 (' + excelPerfSummary.engineerCount + ' 位)' : excelPerfFilters.engineer }}</b></span>
+                                                <span>🚗 路程模式：<b>{{ excelPerfDistanceMode === 'round-trip' ? '含據點往返 (' + excelPerfEffectiveBaseRegion + ')' : '案件點對點串聯' }}</b></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-left md:text-right text-xs text-slate-400 font-semibold shrink-0">
+                                        <div class="text-[#0F1B44] font-extrabold">來源報表：{{ excelPerfFileName }}</div>
+                                        <div>報告產出日：{{ new Date().toISOString().slice(0, 10) }}</div>
+                                        <div class="text-[11px] text-[#0082C3]">{{ excelPerfGeoRefinedCount > 0 ? '已套用真實路網校正 (' + excelPerfGeoRefinedCount + ' 站)' : '台灣行政區座標 × 1.28 道路係數估算' }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- 6 大主管評估 KPI 卡片 -->
+                                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+                                    <div class="bg-gradient-to-br from-[#EBF5FC] to-white border border-sky-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-[#0082C3] flex items-center gap-1">
+                                            <l-icon name="wrench" class="w-3.5 h-3.5"></l-icon> 總處理案件數
+                                        </div>
+                                        <div class="text-2xl font-black text-[#0F1B44] mt-1.5">{{ excelPerfSummary.totalCases }} <span class="text-xs font-bold text-slate-500">件</span></div>
+                                        <div class="text-[11px] text-slate-500 font-semibold mt-1 truncate">{{ excelPerfSummary.typeBreakdownText }}</div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-br from-indigo-50/90 to-white border border-indigo-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-indigo-700 flex items-center gap-1">
+                                            <l-icon name="clock" class="w-3.5 h-3.5"></l-icon> 總現場維修工時
+                                        </div>
+                                        <div class="text-2xl font-black text-indigo-950 mt-1.5">{{ excelPerfSummary.totalHoursText }}</div>
+                                        <div class="text-[11px] text-indigo-600/90 font-semibold mt-1">平均每案 {{ excelPerfSummary.avgMinutesPerCase }} 分鐘</div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-br from-emerald-50/90 to-white border border-emerald-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1">
+                                            <l-icon name="navigation" class="w-3.5 h-3.5"></l-icon> 預估總行車路程
+                                        </div>
+                                        <div class="text-2xl font-black text-emerald-950 mt-1.5">{{ excelPerfSummary.totalDistanceKm }} <span class="text-xs font-bold text-emerald-700">km</span></div>
+                                        <div class="text-[11px] text-emerald-700/90 font-semibold mt-1">日均跑車 {{ excelPerfSummary.avgDistancePerDay }} km</div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-br from-amber-50/90 to-white border border-amber-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-amber-800 flex items-center gap-1">
+                                            <l-icon name="award" class="w-3.5 h-3.5"></l-icon> 里程基數總分
+                                        </div>
+                                        <div class="text-2xl font-black text-amber-950 mt-1.5">{{ excelPerfSummary.totalBasePoints }} <span class="text-xs font-bold text-amber-700">點</span></div>
+                                        <div class="text-[11px] text-amber-700 font-semibold mt-1">單案均基數 {{ excelPerfSummary.avgBasePerCase }}（表2規則）</div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-br from-purple-50/90 to-white border border-purple-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-purple-700 flex items-center gap-1">
+                                            <l-icon name="calendar-days" class="w-3.5 h-3.5"></l-icon> 出勤天數 / 日均量
+                                        </div>
+                                        <div class="text-2xl font-black text-purple-950 mt-1.5">{{ excelPerfSummary.activeDays }} <span class="text-xs font-bold text-purple-700">天</span></div>
+                                        <div class="text-[11px] text-purple-700 font-semibold mt-1">日均 {{ excelPerfSummary.avgCasesPerDay }} 件 · 均 {{ excelPerfSummary.avgHoursPerDay }}h/日</div>
+                                    </div>
+
+                                    <div class="bg-gradient-to-br from-rose-50/90 to-white border border-rose-200/80 rounded-2xl p-4">
+                                        <div class="text-[11px] font-extrabold text-rose-700 flex items-center gap-1">
+                                            <l-icon name="flame" class="w-3.5 h-3.5"></l-icon> 最高負載日
+                                        </div>
+                                        <div class="text-lg font-black text-rose-950 mt-1.5 leading-tight">{{ excelPerfSummary.busiestDayLabel }}</div>
+                                        <div class="text-[11px] text-rose-700 font-semibold mt-1 truncate">{{ excelPerfSummary.busiestDayDetail }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 2：第一排圖表（每日維修工時 vs 路程趨勢 + 每日案件數 vs 路程分佈） -->
+                        <div data-pdf-section="charts-row-1" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                            <l-icon name="trending-up" class="w-4 h-4 text-[#009CE0]"></l-icon>
+                                            每日「現場維修工時 vs. 行車路程距離」雙軸分析
+                                        </h4>
+                                        <p class="text-[11px] text-slate-400 font-medium mt-0.5">柱狀為每日累積現場維修時數（小時），折線為當日串聯行車總公里數（km）</p>
+                                    </div>
+                                </div>
+                                <div class="h-[270px] relative">
+                                    <canvas id="excelPerfDailyTrendChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                            <l-icon name="route" class="w-4 h-4 text-emerald-600"></l-icon>
+                                            每日「處理案件數 vs. 跑車公里數」對照圖
+                                        </h4>
+                                        <p class="text-[11px] text-slate-400 font-medium mt-0.5">協助老闆識別「案件數少但跨縣市跑遠程」的高奔波工作日</p>
+                                    </div>
+                                </div>
+                                <div class="h-[270px] relative">
+                                    <canvas id="excelPerfDailyCountDistChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 3：第二排圖表（每筆案件維修時間排行 + 維修耗時結構分佈） -->
+                        <div data-pdf-section="charts-row-2" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                            <div class="lg:col-span-8 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                            <l-icon name="timer" class="w-4 h-4 text-indigo-600"></l-icon>
+                                            每筆案件實際維修時間分析（單位：分鐘，取耗時前 15 筆）
+                                        </h4>
+                                        <p class="text-[11px] text-slate-400 font-medium mt-0.5">依單筆實際現場維修耗時由長到短排序（深藍＝叫修、琥珀＝交機/其他）</p>
+                                    </div>
+                                    <span class="text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                                        最長單案：{{ excelPerfSummary.maxCaseMinutes }} 分鐘
+                                    </span>
+                                </div>
+                                <div class="relative" :style="{ height: Math.max(250, Math.min(excelPerfFilteredRecords.length, 15) * 28 + 40) + 'px' }">
+                                    <canvas id="excelPerfCaseDurationChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                        <l-icon name="pie-chart" class="w-4 h-4 text-amber-600"></l-icon>
+                                        單筆維修耗時區間分佈
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 font-medium mt-0.5">掌握快速排障 vs. 深度長工時案件佔比</p>
+                                </div>
+                                <div class="h-[220px] relative my-2">
+                                    <canvas id="excelPerfDurationBucketChart"></canvas>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px] font-bold">
+                                    <div v-for="b in excelPerfDurationBuckets" :key="b.label" class="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg">
+                                        <span class="flex items-center gap-1.5 text-slate-600">
+                                            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: b.color }"></span>
+                                            {{ b.label }}
+                                        </span>
+                                        <span class="text-[#0F1B44] font-black">{{ b.count }} 件</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 4：第三排圖表（工程師橫向評比/地區分佈 + 設備機型耗時分析） -->
+                        <div data-pdf-section="charts-row-3" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                                <div class="mb-3">
+                                    <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                        <l-icon name="users" class="w-4 h-4 text-[#132356]"></l-icon>
+                                        {{ excelPerfEngineerSummaryRows.length > 1 ? '各工程師綜合績效橫向比較（件數 / 工時 / 路程）' : '出勤縣市與地區案件分佈（含里程基數）' }}
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 font-medium mt-0.5">
+                                        {{ excelPerfEngineerSummaryRows.length > 1 ? '多位工程師並排比較總案件數、現場維修小時與跑車公里數（除以10比例呈現）' : '統計出勤涵蓋的縣市與行政區案件數，呈現跨區服務廣度' }}
+                                    </p>
+                                </div>
+                                <div class="h-[260px] relative">
+                                    <canvas id="excelPerfEngineerCompareChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                                <div class="mb-3">
+                                    <h4 class="text-sm font-black text-[#0F1B44] flex items-center gap-1.5">
+                                        <l-icon name="cpu" class="w-4 h-4 text-purple-600"></l-icon>
+                                        設備機型累積維修工時排行（前 8 大機型）
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 font-medium mt-0.5">協助主管掌握哪類設備最耗費工程師現場工時（單位：分鐘）</p>
+                                </div>
+                                <div class="h-[260px] relative">
+                                    <canvas id="excelPerfModelChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 5：工程師綜合績效評估總表 -->
+                        <div data-pdf-section="engineer-summary" class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div>
+                                    <h4 class="text-base font-black text-[#0F1B44] flex items-center gap-2">
+                                        <l-icon name="clipboard-check" class="w-5 h-5 text-[#009CE0]"></l-icon>
+                                        工程師績效綜合評估總表（主管考評彙總）
+                                    </h4>
+                                    <p class="text-xs text-slate-400 font-medium mt-0.5">彙整每位工程師的出勤天數、案件產出、現場維修工時、預估行車總路程與里程基數加權總分</p>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-[#0F1B44] text-white">
+                                            <th class="py-2.5 px-3 rounded-tl-xl font-extrabold">工程師</th>
+                                            <th class="py-2.5 px-3 text-center font-extrabold">歸屬分區</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">出勤天數</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">總案件數</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">日均件數</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">總維修工時</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">平均每案耗時</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">預估總路程</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold">日均路程</th>
+                                            <th class="py-2.5 px-3 text-right font-extrabold rounded-tr-xl">里程基數總分</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr v-for="row in excelPerfEngineerSummaryRows" :key="row.engineer" class="hover:bg-sky-50/50 transition-colors">
+                                            <td class="py-3 px-3 font-black text-[#0F1B44]">{{ row.engineer }}</td>
+                                            <td class="py-3 px-3 text-center">
+                                                <span class="bg-sky-50 text-[#0082C3] border border-sky-200 px-2 py-0.5 rounded-full font-bold text-[11px]">{{ row.baseRegion }}</span>
+                                            </td>
+                                            <td class="py-3 px-3 text-right font-bold text-slate-700">{{ row.activeDays }} 天</td>
+                                            <td class="py-3 px-3 text-right font-black text-[#0F1B44]">{{ row.totalCases }} 件</td>
+                                            <td class="py-3 px-3 text-right font-bold text-slate-600">{{ row.avgCasesPerDay }} 件/日</td>
+                                            <td class="py-3 px-3 text-right font-black text-indigo-700">{{ row.totalHoursText }}</td>
+                                            <td class="py-3 px-3 text-right font-bold text-slate-600">{{ row.avgMinutesPerCase }} 分</td>
+                                            <td class="py-3 px-3 text-right font-black text-emerald-700">{{ row.totalDistanceKm }} km</td>
+                                            <td class="py-3 px-3 text-right font-bold text-emerald-600">{{ row.avgDistancePerDay }} km/日</td>
+                                            <td class="py-3 px-3 text-right font-black text-amber-700">{{ row.totalBasePoints }} 點</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 6：每日出勤行程路徑與時間軸 -->
+                        <div data-pdf-section="daily-routes-header" class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                            <div>
+                                <h4 class="text-base font-black text-[#0F1B44] flex items-center gap-2">
+                                    <l-icon name="map" class="w-5 h-5 text-emerald-600"></l-icon>
+                                    每日出勤行程路徑與站點時間軸（共 {{ excelPerfDailyRoutes.length }} 個工作日）
+                                </h4>
+                                <p class="text-xs text-slate-400 font-medium mt-0.5">依完修日期與「維修時間起」自動排列當日站點順序，清楚標示每站維修耗時與站間移動預估距離（km）</p>
+                            </div>
+
+                            <div class="space-y-3.5">
+                                <div
+                                    v-for="day in excelPerfDailyRoutes"
+                                    :key="day.key"
+                                    data-pdf-route-card="true"
+                                    class="border border-slate-200/90 rounded-2xl overflow-hidden bg-slate-50/40"
+                                >
+                                    <!-- 單日摘要頭 -->
+                                    <div class="bg-gradient-to-r from-[#EBF5FC] via-sky-50/80 to-white px-4 py-3 border-b border-sky-100 flex flex-wrap items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2.5 flex-wrap">
+                                            <span class="bg-[#132356] text-white text-xs font-black px-2.5 py-1 rounded-lg">{{ day.date }}</span>
+                                            <span class="font-black text-sm text-[#0F1B44]">{{ day.engineer }}</span>
+                                            <span class="text-xs font-bold bg-white text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">共 {{ day.stops.length }} 站</span>
+                                            <span v-if="day.crossCity" class="text-[11px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-full">跨縣市奔波</span>
+                                        </div>
+                                        <div class="flex items-center gap-3 text-xs font-extrabold flex-wrap">
+                                            <span class="text-indigo-700">⏱️ 現場工時：{{ day.totalHoursText }}</span>
+                                            <span class="text-emerald-700">🚗 當日路程：{{ day.totalDistanceKm }} km</span>
+                                            <span class="text-amber-700">⭐ 基數：{{ day.totalBasePoints }} 點</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 站點串聯視覺化時間軸 -->
+                                    <div class="p-4 flex flex-wrap items-center gap-2">
+                                        <template v-if="excelPerfDistanceMode === 'round-trip'">
+                                            <div class="bg-slate-800 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold shrink-0">
+                                                🏢 {{ day.baseName }}出發
+                                            </div>
+                                            <div class="flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                                                → {{ day.startLegKm }} km →
+                                            </div>
+                                        </template>
+
+                                        <template v-for="(stop, sIdx) in day.stops" :key="stop.uid">
+                                            <div v-if="sIdx > 0" class="flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                                                ── {{ stop.legFromPrevKm }} km ──▶
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-2xs min-w-[180px] max-w-[270px]">
+                                                <div class="flex items-center justify-between gap-2 text-[11px]">
+                                                    <span class="font-black text-[#0082C3]">#{{ sIdx + 1 }} {{ stop.timeRangeText }}</span>
+                                                    <span class="font-extrabold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">{{ stop.durationMinutes }}分</span>
+                                                </div>
+                                                <div class="font-black text-xs text-[#0F1B44] truncate mt-0.5" :title="stop.customer">{{ stop.customer }}</div>
+                                                <div class="text-[11px] text-slate-500 truncate" :title="stop.fullAddress">
+                                                    📍 {{ stop.city }}{{ stop.district ? '·' + stop.district : '' }} {{ stop.address || '(未填地址)' }}
+                                                </div>
+                                                <div class="flex items-center justify-between gap-1 mt-1 text-[10px] font-bold">
+                                                    <span class="px-1.5 py-0.5 rounded" :class="stop.repairType === '交機' ? 'bg-amber-100 text-amber-800' : 'bg-sky-50 text-[#0082C3]'">{{ stop.repairType || '叫修' }}</span>
+                                                    <span class="text-amber-700">基數 {{ stop.mileageBase }}</span>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <template v-if="excelPerfDistanceMode === 'round-trip'">
+                                            <div class="flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                                                → {{ day.returnLegKm }} km →
+                                            </div>
+                                            <div class="bg-slate-800 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-extrabold shrink-0">
+                                                🏢 返回{{ day.baseName }}
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF 區塊 7：每筆維修案件完整明細表 -->
+                        <div data-pdf-section="case-details" class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div>
+                                    <h4 class="text-base font-black text-[#0F1B44] flex items-center gap-2">
+                                        <l-icon name="table-2" class="w-5 h-5 text-[#132356]"></l-icon>
+                                        每筆維修案件完整明細表（共 {{ excelPerfEnrichedRecords.length }} 筆）
+                                    </h4>
+                                    <p class="text-xs text-slate-400 font-medium mt-0.5">依完修日期與開工時間排序，附每筆耗時、預估單段移動距離與公司里程基數</p>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-100 text-slate-700 border-y border-slate-200">
+                                            <th class="py-2 px-2.5 font-extrabold">完修日期</th>
+                                            <th class="py-2 px-2.5 font-extrabold">工程師</th>
+                                            <th class="py-2 px-2.5 font-extrabold">維修起迄</th>
+                                            <th class="py-2 px-2.5 text-right font-extrabold">維修耗時</th>
+                                            <th class="py-2 px-2.5 font-extrabold">客戶名稱</th>
+                                            <th class="py-2 px-2.5 font-extrabold">類型</th>
+                                            <th class="py-2 px-2.5 font-extrabold">縣市與詳細地址</th>
+                                            <th class="py-2 px-2.5 font-extrabold">設備機型</th>
+                                            <th class="py-2 px-2.5 text-right font-extrabold">前站距離</th>
+                                            <th class="py-2 px-2.5 text-right font-extrabold">里程基數</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr v-for="rec in excelPerfEnrichedRecords" :key="rec.uid" class="hover:bg-sky-50/40">
+                                            <td class="py-2 px-2.5 font-bold text-slate-700 whitespace-nowrap">{{ rec.completedDate }}</td>
+                                            <td class="py-2 px-2.5 font-extrabold text-[#0F1B44] whitespace-nowrap">{{ rec.engineer }}</td>
+                                            <td class="py-2 px-2.5 font-mono text-[11px] text-slate-600 whitespace-nowrap">{{ rec.timeRangeText }}</td>
+                                            <td class="py-2 px-2.5 text-right font-black whitespace-nowrap" :class="rec.durationMinutes >= 120 ? 'text-rose-600' : 'text-indigo-700'">{{ rec.durationText }}</td>
+                                            <td class="py-2 px-2.5 font-bold text-slate-800 max-w-[150px] truncate" :title="rec.customer">{{ rec.customer }}</td>
+                                            <td class="py-2 px-2.5 whitespace-nowrap">
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold" :class="rec.repairType === '交機' ? 'bg-amber-100 text-amber-800' : 'bg-sky-50 text-[#0082C3]'">{{ rec.repairType || '叫修' }}</span>
+                                            </td>
+                                            <td class="py-2 px-2.5 text-slate-600 max-w-[220px] truncate" :title="rec.fullAddress">{{ rec.city }} {{ rec.address || '(未填地址)' }}</td>
+                                            <td class="py-2 px-2.5 text-slate-500 max-w-[170px] truncate" :title="rec.modelName">{{ rec.modelName || '-' }}</td>
+                                            <td class="py-2 px-2.5 text-right font-bold text-emerald-700 whitespace-nowrap">{{ rec.legFromPrevKm > 0 ? rec.legFromPrevKm + ' km' : (rec.isFirstStopOfDay ? '首站' : '0 km') }}</td>
+                                            <td class="py-2 px-2.5 text-right font-black text-amber-700 whitespace-nowrap">{{ rec.mileageBase }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </template>
+
+        </div>
+
+        <!-- 助理專用「績效分析」密碼驗證 Modal (密碼: 5483) -->
+        <div v-if="showExcelPerfAuthModal" class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" @click.self="closeExcelPerfAuthModal">
+            <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden">
+                <div class="h-1.5 w-full bg-gradient-to-r from-[#F7E318] via-[#EE3B2B] to-[#009CE0]"></div>
+                <div class="p-6 space-y-5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0F1B44] to-[#009CE0] text-white flex items-center justify-center shadow-md">
+                                <l-icon name="lock" class="w-5 h-5"></l-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-black text-[#0F1B44]">績效分析（助理專用）</h3>
+                                <p class="text-xs text-slate-500 font-medium">請輸入授權密碼以進入老闆評估報表中心</p>
+                            </div>
+                        </div>
+                        <button @click="closeExcelPerfAuthModal" class="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-full">
+                            <l-icon name="x" class="w-4 h-4"></l-icon>
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="relative">
+                            <input
+                                id="excel-perf-pwd-input"
+                                v-model="excelPerfPasswordInput"
+                                :type="showExcelPerfPwd ? 'text' : 'password'"
+                                placeholder="請輸入助理密碼"
+                                class="input-style !pl-10 !pr-10 py-3 text-base font-bold tracking-widest"
+                                @keyup.enter="verifyExcelPerfPassword"
+                                autofocus
+                            />
+                            <l-icon name="key-round" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></l-icon>
+                            <button type="button" @click="showExcelPerfPwd = !showExcelPerfPwd" class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700">
+                                <l-icon :name="showExcelPerfPwd ? 'eye-off' : 'eye'" class="w-4 h-4"></l-icon>
+                            </button>
+                        </div>
+
+                        <div v-if="excelPerfAuthError" class="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                            <l-icon name="x-circle" class="w-4 h-4 shrink-0"></l-icon>
+                            <span>{{ excelPerfAuthError }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-1">
+                        <button type="button" @click="closeExcelPerfAuthModal" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                            取消
+                        </button>
+                        <button type="button" @click="verifyExcelPerfPassword" class="px-6 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-[#132356] to-[#009CE0] hover:from-[#0F1B44] hover:to-[#0284C7] shadow-md shadow-[#132356]/25 flex items-center gap-1.5 transition-all active:scale-95">
+                            <l-icon name="unlock" class="w-4 h-4"></l-icon> 驗證並進入
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 歷史複查 Modal -->
@@ -4634,6 +5239,1233 @@ window.onerror = function(msg, url, line, col, error) {
                     }
                 });
 
+                // =========================================================================
+                // 助理專用：績效分析中心 (密碼 5483 + Excel 匯入 + 維修時間/路程圖表 + PDF)
+                // =========================================================================
+                const EXCEL_PERF_PASSWORD = '5483';
+                const showExcelPerfAuthModal = ref(false);
+                const isExcelPerfAuthenticated = ref(false);
+                const excelPerfPasswordInput = ref('');
+                const showExcelPerfPwd = ref(false);
+                const excelPerfAuthError = ref('');
+
+                const excelPerfFileName = ref('');
+                const excelPerfRawRecords = ref([]);
+                const excelPerfMileageRules = ref([]);
+                const excelPerfError = ref('');
+                const excelPerfNotice = ref('');
+                const isExcelPerfDragging = ref(false);
+                const excelPerfDistanceMode = ref('point-to-point'); // 'point-to-point' | 'round-trip'
+                const excelPerfBaseRegion = ref('auto'); // 'auto' | '南區' | '中區' | '北區'
+                const excelPerfFilters = reactive({
+                    engineer: 'all',
+                    repairType: 'all',
+                    startDate: '',
+                    endDate: ''
+                });
+
+                const excelPerfGeoRefining = ref(false);
+                const excelPerfGeoStatusText = ref('校正中...');
+                const excelPerfGeoRefinedCount = ref(0);
+                const isExportingExcelPerfPDF = ref(false);
+                const excelPerfPdfProgressText = ref('產出 PDF 中...');
+
+                // 載入本機已校正門牌經緯度快取
+                const EXCEL_GEO_CACHE_KEY = 'excel_perf_geo_cache_v1';
+                const excelPerfGeoCache = (() => {
+                    try { return JSON.parse(localStorage.getItem(EXCEL_GEO_CACHE_KEY) || '{}') || {}; }
+                    catch (e) { return {}; }
+                })();
+
+                // 內建台灣主要駐點與全台灣縣市 / 行政區精密經緯度表 (離線 0.1 秒完成估算)
+                const TW_BASE_COORDS = {
+                    '南區': { name: '高雄駐點', lat: 22.646, lng: 120.320 },
+                    '中區': { name: '台中駐點', lat: 24.164, lng: 120.640 },
+                    '北區': { name: '北區駐點', lat: 25.035, lng: 121.450 }
+                };
+
+                const TW_CITY_COORDS = {
+                    '台北': [25.0330, 121.5654], '新北': [25.0120, 121.4657], '基隆': [25.1276, 121.7392],
+                    '桃園': [24.9936, 121.3010], '新竹': [24.8138, 120.9675], '苗栗': [24.5602, 120.8214],
+                    '台中': [24.1477, 120.6736], '彰化': [24.0518, 120.5161], '南投': [23.9609, 120.9719],
+                    '雲林': [23.7092, 120.4313], '嘉義': [23.4801, 120.4491], '台南': [22.9997, 120.2270],
+                    '高雄': [22.6273, 120.3014], '屏東': [22.6762, 120.4929], '宜蘭': [24.7570, 121.7533],
+                    '花蓮': [23.9872, 121.6015], '台東': [22.7583, 121.1444], '澎湖': [23.5712, 119.5793],
+                    '金門': [24.4321, 118.3171], '連江': [26.1505, 119.9499], '馬祖': [26.1505, 119.9499]
+                };
+
+                const TW_DISTRICT_COORDS = {
+                    // 高雄市全區
+                    '三民區': [22.6476, 120.3228], '左營區': [22.6889, 120.2932], '苓雅區': [22.6219, 120.3125],
+                    '楠梓區': [22.7282, 120.3065], '前金區': [22.6270, 120.2943], '新興區': [22.6313, 120.3067],
+                    '鼓山區': [22.6512, 120.2747], '鹽埕區': [22.6247, 120.2833], '前鎮區': [22.5876, 120.3155],
+                    '小港區': [22.5649, 120.3536], '旗津區': [22.6134, 120.2666], '鳳山區': [22.6269, 120.3568],
+                    '仁武區': [22.7016, 120.3477], '鳥松區': [22.6596, 120.3645], '大寮區': [22.6061, 120.3955],
+                    '林園區': [22.5015, 120.3956], '大樹區': [22.6933, 120.4331], '大社區': [22.7301, 120.3468],
+                    '岡山區': [22.7966, 120.2956], '橋頭區': [22.7574, 120.3059], '路竹區': [22.8565, 120.2614],
+                    '湖內區': [22.9056, 120.2144], '阿蓮區': [22.8825, 120.3271], '燕巢區': [22.7931, 120.3619],
+                    '梓官區': [22.7603, 120.2673], '彌陀區': [22.7829, 120.2473], '永安區': [22.8186, 120.2252],
+                    '茄萣區': [22.9061, 120.1828], '旗山區': [22.8884, 120.4816], '美濃區': [22.8975, 120.5413],
+                    '六龜區': [22.9979, 120.6335], '杉林區': [22.9711, 120.5389], '內門區': [22.9435, 120.4622],
+                    // 屏東縣
+                    '屏東市': [22.6762, 120.4929], '潮州鎮': [22.5504, 120.5427], '東港鎮': [22.4651, 120.4545],
+                    '恆春鎮': [22.0038, 120.7443], '墾丁': [21.9467, 120.7985], '萬丹鄉': [22.5898, 120.4846],
+                    '內埔鄉': [22.6119, 120.5666], '長治鄉': [22.6766, 120.5276], '九如鄉': [22.7322, 120.4892],
+                    '里港鄉': [22.7793, 120.4945], '林邊鄉': [22.4342, 120.5150], '枋寮鄉': [22.3652, 120.5944],
+                    '車城鄉': [22.0725, 120.7136], '琉球鄉': [22.3455, 120.3698],
+                    // 台南市
+                    '中西區': [22.9922, 120.1965], '東區': [22.9804, 120.2250], '南區': [22.9547, 120.1887],
+                    '北區': [23.0108, 120.2072], '安平區': [22.9985, 120.1652], '安南區': [23.0484, 120.1846],
+                    '永康區': [23.0261, 120.2570], '歸仁區': [22.9672, 120.2938], '新化區': [23.0385, 120.3108],
+                    '仁德區': [22.9718, 120.2515], '關廟區': [22.9628, 120.3276], '善化區': [23.1322, 120.2968],
+                    '新市區': [23.0789, 120.2952], '安定區': [23.1213, 120.2371], '麻豆區': [23.1818, 120.2481],
+                    '佳里區': [23.1650, 120.1772], '西港區': [23.1233, 120.2036], '學甲區': [23.2325, 120.1803],
+                    '新營區': [23.3075, 120.3167], '鹽水區': [23.3198, 120.2663], '白河區': [23.3514, 120.4158],
+                    '柳營區': [23.2781, 120.3112], '官田區': [23.1945, 120.3143], '玉井區': [23.1249, 120.4609],
+                    // 嘉義 / 雲林 / 彰化 / 南投
+                    '嘉義市': [23.4801, 120.4491], '太保市': [23.4593, 120.3328], '朴子市': [23.4649, 120.2471],
+                    '民雄鄉': [23.5515, 120.4285], '阿里山': [23.5106, 120.8027], '斗六市': [23.7092, 120.5435],
+                    '虎尾鎮': [23.7082, 120.4357], '北港鎮': [23.5754, 120.3025], '西螺鎮': [23.7998, 120.4659],
+                    '斗南鎮': [23.6797, 120.4791], '彰化市': [24.0816, 120.5383], '員林市': [23.9590, 120.5742],
+                    '鹿港鎮': [24.0569, 120.4354], '和美鎮': [24.1112, 120.4976], '南投市': [23.9157, 120.6869],
+                    '草屯鎮': [23.9765, 120.6836], '埔里鎮': [23.9663, 120.9695], '竹山鎮': [23.7565, 120.6839],
+                    // 台中市
+                    '西屯區': [24.1644, 120.6398], '北屯區': [24.1820, 120.6860], '南屯區': [24.1380, 120.6400],
+                    '西區': [24.1419, 120.6634], '中區': [24.1436, 120.6795], '太平區': [24.1264, 120.7185],
+                    '大里區': [24.0994, 120.6773], '霧峰區': [24.0616, 120.7003], '烏日區': [24.1061, 120.6238],
+                    '豐原區': [24.2522, 120.7221], '潭子區': [24.2095, 120.7052], '大雅區': [24.2292, 120.6478],
+                    '后里區': [24.3049, 120.7107], '沙鹿區': [24.2332, 120.5657], '大甲區': [24.3489, 120.6224],
+                    '清水區': [24.2686, 120.5597], '梧棲區': [24.2547, 120.5315], '龍井區': [24.1927, 120.5459],
+                    '和平區': [24.1748, 120.8835], '東勢區': [24.2586, 120.8277],
+                    // 苗栗 / 新竹 / 桃園
+                    '苗栗市': [24.5602, 120.8214], '頭份市': [24.6870, 120.9094], '竹南鎮': [24.6859, 120.8780],
+                    '新竹市': [24.8039, 120.9647], '竹北市': [24.8387, 121.0077], '湖口鄉': [24.9035, 121.0437],
+                    '桃園區': [24.9936, 121.3010], '中壢區': [24.9652, 121.2248], '平鎮區': [24.9457, 121.2183],
+                    '八德區': [24.9286, 121.2846], '龜山區': [24.9925, 121.3381], '蘆竹區': [25.0454, 121.2928],
+                    '大園區': [25.0644, 121.1966], '龍潭區': [24.8639, 121.2164], '大溪區': [24.8807, 121.2870],
+                    '楊梅區': [24.9076, 121.1458], '林口區': [25.0775, 121.3916],
+                    // 雙北 / 基隆 / 宜花東
+                    '中正區': [25.0324, 121.5183], '大同區': [25.0634, 121.5133], '中山區': [25.0643, 121.5335],
+                    '松山區': [25.0497, 121.5772], '大安區': [25.0264, 121.5435], '萬華區': [25.0347, 121.4998],
+                    '信義區': [25.0306, 121.5720], '士林區': [25.0928, 121.5246], '北投區': [25.1319, 121.5015],
+                    '內湖區': [25.0697, 121.5889], '南港區': [25.0547, 121.6070], '文山區': [24.9896, 121.5702],
+                    '板橋區': [25.0114, 121.4590], '新莊區': [25.0359, 121.4504], '中和區': [24.9994, 121.4988],
+                    '永和區': [25.0079, 121.5165], '三重區': [25.0615, 121.4867], '蘆洲區': [25.0849, 121.4737],
+                    '新店區': [24.9675, 121.5417], '土城區': [24.9722, 121.4433], '樹林區': [24.9907, 121.4205],
+                    '汐止區': [25.0621, 121.6425], '淡水區': [25.1695, 121.4406], '五股區': [25.0827, 121.4381],
+                    '泰山區': [25.0588, 121.4308], '三峽區': [24.9343, 121.3690], '鶯歌區': [24.9554, 121.3545],
+                    '宜蘭市': [24.7570, 121.7533], '羅東鎮': [24.6768, 121.7669], '礁溪鄉': [24.8234, 121.7668],
+                    '花蓮市': [23.9872, 121.6015], '吉安鄉': [23.9722, 121.5646], '台東市': [22.7583, 121.1444]
+                };
+
+                // 預設公司里程基數規則 (對應 報表22.xlsx 工作表2，若匯入檔含工作表2則自動動態覆蓋)
+                const DEFAULT_MILEAGE_RULES = [
+                    { region: '北區', area: '新北市(林口除外)', base: 1 }, { region: '北區', area: '台北', base: 1 },
+                    { region: '北區', area: '林口', base: 1 }, { region: '北區', area: '基隆', base: 1 },
+                    { region: '北區', area: '桃園/龜山/龍潭/大溪/中壢', base: 1 }, { region: '北區', area: '楊梅', base: 1 },
+                    { region: '北區', area: '新竹', base: 1.5 }, { region: '北區', area: '宜蘭/羅東', base: 1.5 },
+                    { region: '北區', area: '苗栗頭份', base: 1.5 }, { region: '北區', area: '竹南', base: 1.5 },
+                    { region: '北區', area: '花蓮', base: 2 }, { region: '北區', area: '中區', base: 2 }, { region: '北區', area: '南區', base: 2 },
+                    { region: '中區', area: '苗栗', base: 1.5 }, { region: '中區', area: '台中市區(開車半小內)', base: 1 },
+                    { region: '中區', area: '台中市郊區(后里以南)', base: 1 }, { region: '中區', area: '台中市海線(大甲/沙鹿/龍井)', base: 1.5 },
+                    { region: '中區', area: '台中山線(和平)', base: 1.5 }, { region: '中區', area: '彰化', base: 1 },
+                    { region: '中區', area: '南投', base: 1.5 }, { region: '中區', area: '雲林', base: 1.5 },
+                    { region: '中區', area: '嘉義山線(嘉義市以東/阿里山)', base: 2 }, { region: '中區', area: '嘉義', base: 1.5 },
+                    { region: '中區', area: '北區', base: 2 }, { region: '中區', area: '南區', base: 2 },
+                    { region: '南區', area: '新營', base: 1 }, { region: '南區', area: '佳里/麻豆', base: 1 },
+                    { region: '南區', area: '善化', base: 1 }, { region: '南區', area: '台南', base: 1 },
+                    { region: '南區', area: '路竹', base: 1 }, { region: '南區', area: '高雄市區', base: 1 },
+                    { region: '南區', area: '林園', base: 1 }, { region: '南區', area: '旗山', base: 1 },
+                    { region: '南區', area: '屏東', base: 1 }, { region: '南區', area: '墾丁', base: 1.5 },
+                    { region: '南區', area: '台東', base: 2 }, { region: '南區', area: '澎湖、綠島', base: 2 },
+                    { region: '南區', area: '北區', base: 2 }, { region: '南區', area: '中區', base: 2 }
+                ];
+
+                const normalizeCityName = (raw) => {
+                    const s = String(raw || '').trim().replace(/臺/g, '台').replace(/[縣市]$/g, '');
+                    return s;
+                };
+
+                const inferRegionFromCity = (cityRaw) => {
+                    const c = normalizeCityName(cityRaw);
+                    if (['高雄', '台南', '屏東', '台東', '澎湖'].includes(c)) return '南區';
+                    if (['台中', '彰化', '南投', '雲林', '嘉義', '苗栗'].includes(c)) return '中區';
+                    return '北區';
+                };
+
+                const resolveTaiwanCoords = (cityRaw, addressRaw) => {
+                    const city = normalizeCityName(cityRaw);
+                    const addr = String(addressRaw || '').trim().replace(/臺/g, '台');
+                    const fullKey = `${city}|${addr}`;
+                    if (addr && excelPerfGeoCache[fullKey]) {
+                        return { ...excelPerfGeoCache[fullKey], precision: 'real' };
+                    }
+                    // 優先精準匹配鄉鎮市區 (依字長由長到短避免誤判)
+                    const distKeys = Object.keys(TW_DISTRICT_COORDS);
+                    for (let i = 0; i < distKeys.length; i++) {
+                        const dk = distKeys[i];
+                        const shortDk = dk.replace(/[區鎮鄉市]$/, '');
+                        if (addr.includes(dk) || (shortDk.length >= 2 && addr.includes(shortDk))) {
+                            // 避免同區名跨縣市誤判（如台南/台中都有東區、北區、南區）
+                            if (['東區', '西區', '南區', '北區', '中區', '中正區', '中山區', '信義區', '大安區'].includes(dk)) {
+                                if (city === '台中' && ['東區', '北區', '南區'].includes(dk)) {
+                                    return { lat: TW_CITY_COORDS['台中'][0], lng: TW_CITY_COORDS['台中'][1], district: dk, precision: 'district' };
+                                }
+                                if (city === '台北' && ['中正區', '中山區', '信義區', '大安區'].includes(dk)) {
+                                    return { lat: TW_DISTRICT_COORDS[dk][0], lng: TW_DISTRICT_COORDS[dk][1], district: dk, precision: 'district' };
+                                }
+                                if (city === '台南' && ['東區', '北區', '南區', '中西區'].includes(dk)) {
+                                    return { lat: TW_DISTRICT_COORDS[dk][0], lng: TW_DISTRICT_COORDS[dk][1], district: dk, precision: 'district' };
+                                }
+                                if (city && city !== '台北' && city !== '台南' && city !== '台中') continue;
+                            }
+                            return { lat: TW_DISTRICT_COORDS[dk][0], lng: TW_DISTRICT_COORDS[dk][1], district: dk, precision: 'district' };
+                        }
+                    }
+                    if (TW_CITY_COORDS[city]) {
+                        return { lat: TW_CITY_COORDS[city][0], lng: TW_CITY_COORDS[city][1], district: '', precision: 'city' };
+                    }
+                    // 嘗試從地址文字推斷縣市
+                    const cityKeys = Object.keys(TW_CITY_COORDS);
+                    for (let i = 0; i < cityKeys.length; i++) {
+                        if (addr.includes(cityKeys[i])) {
+                            return { lat: TW_CITY_COORDS[cityKeys[i]][0], lng: TW_CITY_COORDS[cityKeys[i]][1], district: '', precision: 'city' };
+                        }
+                    }
+                    return null;
+                };
+
+                const haversineRoadKm = (c1, c2, addr1 = '', addr2 = '') => {
+                    if (!c1 || !c2) return 0;
+                    const toRad = (d) => d * Math.PI / 180;
+                    const R = 6371;
+                    const dLat = toRad(c2.lat - c1.lat);
+                    const dLng = toRad(c2.lng - c1.lng);
+                    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(c1.lat)) * Math.cos(toRad(c2.lat)) * Math.sin(dLng / 2) ** 2;
+                    const straight = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                    if (straight < 0.05) {
+                        const a1 = String(addr1 || '').trim();
+                        const a2 = String(addr2 || '').trim();
+                        if (a1 && a2 && a1 !== a2) return 2.8; // 同行政區不同地址之合理市區短程估算
+                        return 0;
+                    }
+                    return Number((straight * 1.28).toFixed(1)); // 台灣實際道路曲折係數 1.28
+                };
+
+                const lookupMileageBase = (baseRegion, cityRaw, addressRaw) => {
+                    const rules = excelPerfMileageRules.value.length > 0 ? excelPerfMileageRules.value : DEFAULT_MILEAGE_RULES;
+                    const regionRules = rules.filter(r => r.region === baseRegion);
+                    const city = normalizeCityName(cityRaw);
+                    const addr = String(addressRaw || '').replace(/臺/g, '台');
+                    const combined = `${city} ${addr}`;
+
+                    // 先比對具體地名關鍵字
+                    for (const rule of regionRules) {
+                        const areaClean = String(rule.area || '').replace(/臺/g, '台');
+                        if (['北區', '中區', '南區'].includes(areaClean)) continue;
+                        const tokens = areaClean.replace(/\(.*?\)/g, '').split(/[\/、,\s]+/).map(t => t.replace(/[縣市區鎮鄉]$/, '').trim()).filter(t => t.length >= 2);
+                        // 特殊括號內關鍵字 (如 大甲/沙鹿/龍井、和平、阿里山)
+                        const parenMatch = areaClean.match(/\((.*?)\)/);
+                        if (parenMatch) {
+                            const inner = parenMatch[1].replace(/開車半小內|林口除外|后里以南|嘉義市以東/g, '');
+                            inner.split(/[\/、,\s]+/).map(t => t.trim()).filter(t => t.length >= 2).forEach(t => tokens.push(t));
+                        }
+                        if (tokens.some(tk => combined.includes(tk))) {
+                            return Number(rule.base) || 1;
+                        }
+                    }
+
+                    // 跨大區回退比對
+                    const targetRegion = inferRegionFromCity(city);
+                    if (targetRegion !== baseRegion) {
+                        const crossRule = regionRules.find(r => r.area === targetRegion);
+                        if (crossRule) return Number(crossRule.base) || 2;
+                        return 2;
+                    }
+                    return 1;
+                };
+
+                const parseExcelDateStr = (val) => {
+                    if (val === null || val === undefined || val === '') return '';
+                    if (typeof val === 'number' && window.XLSX && window.XLSX.SSF) {
+                        const d = window.XLSX.SSF.parse_date_code(val);
+                        if (d && d.y && d.m && d.d) {
+                            return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+                        }
+                    }
+                    if (val instanceof Date && !isNaN(val.getTime())) {
+                        return `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, '0')}-${String(val.getDate()).padStart(2, '0')}`;
+                    }
+                    const s = String(val).trim().replace(/\//g, '-');
+                    const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+                    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+                    return s;
+                };
+
+                const parseExcelTimeToMinutes = (val) => {
+                    if (val === null || val === undefined || val === '') return null;
+                    if (typeof val === 'number') {
+                        // Excel 時間小數 (0~1 表示一天 1440 分鐘)
+                        const frac = val >= 1 ? (val % 1) : val;
+                        return Math.round(frac * 1440);
+                    }
+                    if (val instanceof Date && !isNaN(val.getTime())) {
+                        return val.getHours() * 60 + val.getMinutes();
+                    }
+                    const s = String(val).trim();
+                    const m = s.match(/(\d{1,2}):(\d{2})/);
+                    if (m) return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+                    return null;
+                };
+
+                const formatMinToHHMM = (mins) => {
+                    if (mins === null || mins === undefined || isNaN(mins)) return '--:--';
+                    const safe = ((Math.round(mins) % 1440) + 1440) % 1440;
+                    const h = Math.floor(safe / 60);
+                    const m = safe % 60;
+                    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                };
+
+                const formatDurationZh = (mins) => {
+                    const m = Math.max(0, Math.round(mins || 0));
+                    const h = Math.floor(m / 60);
+                    const r = m % 60;
+                    if (h > 0 && r > 0) return `${h}小時${r}分`;
+                    if (h > 0) return `${h}小時`;
+                    return `${r}分`;
+                };
+
+                const openExcelPerfPage = () => {
+                    if (isExcelPerfAuthenticated.value) {
+                        activeView.value = 'excelPerf';
+                        if (window.innerWidth < 1024) isSidebarOpen.value = false;
+                        nextTick(() => renderExcelPerfCharts());
+                    } else {
+                        excelPerfPasswordInput.value = '';
+                        excelPerfAuthError.value = '';
+                        showExcelPerfPwd.value = false;
+                        showExcelPerfAuthModal.value = true;
+                        nextTick(() => {
+                            const el = document.getElementById('excel-perf-pwd-input');
+                            if (el) el.focus();
+                        });
+                    }
+                };
+
+                const closeExcelPerfAuthModal = () => {
+                    showExcelPerfAuthModal.value = false;
+                    excelPerfPasswordInput.value = '';
+                    excelPerfAuthError.value = '';
+                };
+
+                const verifyExcelPerfPassword = () => {
+                    if (String(excelPerfPasswordInput.value || '').trim() === EXCEL_PERF_PASSWORD) {
+                        isExcelPerfAuthenticated.value = true;
+                        showExcelPerfAuthModal.value = false;
+                        excelPerfPasswordInput.value = '';
+                        excelPerfAuthError.value = '';
+                        activeView.value = 'excelPerf';
+                        if (window.innerWidth < 1024) isSidebarOpen.value = false;
+                        nextTick(() => renderExcelPerfCharts());
+                    } else {
+                        excelPerfAuthError.value = '密碼錯誤，請確認助理授權密碼後重新輸入！';
+                    }
+                };
+
+                const lockExcelPerfPage = () => {
+                    isExcelPerfAuthenticated.value = false;
+                    activeView.value = 'kanban';
+                };
+
+                const triggerExcelPerfUpload = () => {
+                    const input = document.getElementById('excel-perf-file-input');
+                    if (input) {
+                        input.value = '';
+                        input.click();
+                    }
+                };
+
+                const parseExcelPerfFile = (file) => {
+                    excelPerfError.value = '';
+                    excelPerfNotice.value = '';
+                    if (!file) return;
+                    if (!window.XLSX) {
+                        excelPerfError.value = 'Excel 解析元件尚未載入完成，請確認網路連線後重新整理頁面。';
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const wb = window.XLSX.read(data, { type: 'array' });
+                            if (!wb.SheetNames || wb.SheetNames.length === 0) {
+                                excelPerfError.value = 'Excel 檔案內找不到任何工作表。';
+                                return;
+                            }
+
+                            // 1. 解析主資料表（優先找含「叫修單單號」或「業務員名稱」的工作表，預設第一張）
+                            let mainSheetName = wb.SheetNames[0];
+                            for (const sn of wb.SheetNames) {
+                                const rowsPreview = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' }).slice(0, 5);
+                                if (rowsPreview.some(r => r.some(c => String(c).includes('叫修單單號') || String(c).includes('維修時間')))) {
+                                    mainSheetName = sn;
+                                    break;
+                                }
+                            }
+                            const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[mainSheetName], { header: 1, raw: true, defval: '' });
+                            const headerIdx = rows.findIndex(r => r.some(c => String(c).includes('叫修單') || String(c).includes('業務員') || String(c).includes('完修日期')));
+                            if (headerIdx < 0) {
+                                excelPerfError.value = '無法辨識表格欄位標題，請確認檔案格式與「報表22.xlsx」相符。';
+                                return;
+                            }
+                            const headers = rows[headerIdx].map(h => String(h || '').trim());
+                            const findCol = (candidates) => {
+                                for (const cand of candidates) {
+                                    const exact = headers.findIndex(h => h === cand);
+                                    if (exact >= 0) return exact;
+                                }
+                                for (const cand of candidates) {
+                                    const partial = headers.findIndex(h => h.includes(cand));
+                                    if (partial >= 0) return partial;
+                                }
+                                return -1;
+                            };
+
+                            const colIdx = {
+                                orderNo: findCol(['叫修單單號', '單號']),
+                                serialNo: findCol(['機號']),
+                                reportDate: findCol(['叫修單日期', '報修日期']),
+                                customer: findCol(['叫修單客供商', '客戶名稱', '客供商', '客戶']),
+                                returnNo: findCol(['叫修歸還單號', '歸還單號']),
+                                repairType: findCol(['叫修歸還單維修描述', '維修描述', '類型']),
+                                city: findCol(['區', '縣市']),
+                                address: findCol(['地', '地址']),
+                                startTime: findCol(['維修時間起', '開始時間']),
+                                endTime: findCol(['維修時間迄', '結束時間']),
+                                duration: findCol(['維修時間', '耗時']),
+                                completedDate: findCol(['完修日期', '出勤日期']),
+                                engineer: findCol(['業務員名稱', '工程師', '維修人員']),
+                                partCode: findCol(['零件產品代號', '產品代號']),
+                                modelName: findCol(['零件產品名稱', '機型', '產品名稱'])
+                            };
+
+                            const parsed = [];
+                            for (let r = headerIdx + 1; r < rows.length; r++) {
+                                const row = rows[r];
+                                if (!row || row.every(c => String(c || '').trim() === '')) continue;
+                                const getVal = (idx) => (idx >= 0 && idx < row.length) ? row[idx] : '';
+
+                                const customer = String(getVal(colIdx.customer) || '').trim();
+                                const orderNo = String(getVal(colIdx.orderNo) || '').trim();
+                                if (!customer && !orderNo) continue;
+
+                                const completedDate = parseExcelDateStr(getVal(colIdx.completedDate)) || parseExcelDateStr(getVal(colIdx.reportDate)) || '未填日期';
+                                const reportDate = parseExcelDateStr(getVal(colIdx.reportDate));
+                                const startMin = parseExcelTimeToMinutes(getVal(colIdx.startTime));
+                                const endMin = parseExcelTimeToMinutes(getVal(colIdx.endTime));
+                                let durationMinutes = parseExcelTimeToMinutes(getVal(colIdx.duration));
+                                if ((durationMinutes === null || durationMinutes === 0) && startMin !== null && endMin !== null) {
+                                    durationMinutes = endMin >= startMin ? (endMin - startMin) : (1440 - startMin + endMin);
+                                }
+                                if (durationMinutes === null || isNaN(durationMinutes)) durationMinutes = 0;
+
+                                const city = normalizeCityName(getVal(colIdx.city));
+                                const address = String(getVal(colIdx.address) || '').trim();
+                                const engineer = String(getVal(colIdx.engineer) || '未填寫').trim();
+                                const repairType = String(getVal(colIdx.repairType) || '叫修').trim();
+                                const modelName = String(getVal(colIdx.modelName) || '').trim();
+
+                                parsed.push({
+                                    uid: `ep_${r}_${orderNo || r}`,
+                                    orderNo,
+                                    serialNo: String(getVal(colIdx.serialNo) || '').trim(),
+                                    reportDate,
+                                    completedDate,
+                                    customer: customer || '(未填客戶)',
+                                    returnNo: String(getVal(colIdx.returnNo) || '').trim(),
+                                    repairType,
+                                    city: city || '未填',
+                                    address,
+                                    fullAddress: `${city}${address}`,
+                                    startMin: startMin !== null ? startMin : 9999,
+                                    endMin,
+                                    timeRangeText: (startMin !== null && endMin !== null) ? `${formatMinToHHMM(startMin)}-${formatMinToHHMM(endMin)}` : (startMin !== null ? formatMinToHHMM(startMin) : '未填時間'),
+                                    durationMinutes,
+                                    durationText: formatDurationZh(durationMinutes),
+                                    engineer,
+                                    partCode: String(getVal(colIdx.partCode) || '').trim(),
+                                    modelName
+                                });
+                            }
+
+                            if (parsed.length === 0) {
+                                excelPerfError.value = '工作表中找不到有效的維修資料列，請檢查 Excel 內容。';
+                                return;
+                            }
+
+                            // 2. 解析工作表 2（地區里程基數表）
+                            const parsedRules = [];
+                            for (const sn of wb.SheetNames) {
+                                if (sn === mainSheetName) continue;
+                                const s2Rows = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' });
+                                const h2 = s2Rows.findIndex(r => r.some(c => String(c).includes('里程基數') || String(c).includes('地區')));
+                                if (h2 >= 0) {
+                                    let currentReg = '';
+                                    for (let i = h2 + 1; i < s2Rows.length; i++) {
+                                        const r2 = s2Rows[i];
+                                        if (!r2) continue;
+                                        const c0 = String(r2[0] || '').trim();
+                                        const c1 = String(r2[1] || '').trim();
+                                        const c2 = Number(r2[2]);
+                                        if (c0) currentReg = c0;
+                                        if (currentReg && c1 && !isNaN(c2) && c2 > 0) {
+                                            parsedRules.push({ region: currentReg, area: c1, base: c2 });
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+
+                            excelPerfMileageRules.value = parsedRules;
+                            excelPerfRawRecords.value = parsed;
+                            excelPerfFileName.value = file.name;
+
+                            // 重設篩選區間為檔案涵蓋起訖日
+                            const validDates = parsed.map(x => x.completedDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+                            excelPerfFilters.engineer = 'all';
+                            excelPerfFilters.repairType = 'all';
+                            excelPerfFilters.startDate = validDates[0] || '';
+                            excelPerfFilters.endDate = validDates[validDates.length - 1] || '';
+
+                            excelPerfNotice.value = `成功匯入「${file.name}」，共解析 ${parsed.length} 筆維修資料${parsedRules.length > 0 ? `（並自動載入工作表 2 共 ${parsedRules.length} 條里程基數規則）` : ''}！`;
+                            nextTick(() => renderExcelPerfCharts());
+                        } catch (err) {
+                            console.error('Excel parse error:', err);
+                            excelPerfError.value = '解析 Excel 發生錯誤：' + (err.message || err);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                };
+
+                const handleExcelPerfFileChange = (event) => {
+                    const file = event && event.target && event.target.files ? event.target.files[0] : null;
+                    if (file) parseExcelPerfFile(file);
+                };
+
+                const handleExcelPerfDrop = (event) => {
+                    isExcelPerfDragging.value = false;
+                    const file = event && event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+                    if (file) parseExcelPerfFile(file);
+                };
+
+                const resetExcelPerfFilters = () => {
+                    const validDates = excelPerfRawRecords.value.map(x => x.completedDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+                    excelPerfFilters.engineer = 'all';
+                    excelPerfFilters.repairType = 'all';
+                    excelPerfFilters.startDate = validDates[0] || '';
+                    excelPerfFilters.endDate = validDates[validDates.length - 1] || '';
+                    excelPerfDistanceMode.value = 'point-to-point';
+                    excelPerfBaseRegion.value = 'auto';
+                };
+
+                const excelPerfEngineerList = computed(() => {
+                    return [...new Set(excelPerfRawRecords.value.map(r => r.engineer).filter(Boolean))];
+                });
+
+                const excelPerfTypeList = computed(() => {
+                    return [...new Set(excelPerfRawRecords.value.map(r => r.repairType).filter(Boolean))];
+                });
+
+                const excelPerfFilteredRecords = computed(() => {
+                    return excelPerfRawRecords.value.filter(r => {
+                        if (excelPerfFilters.engineer !== 'all' && r.engineer !== excelPerfFilters.engineer) return false;
+                        if (excelPerfFilters.repairType !== 'all' && r.repairType !== excelPerfFilters.repairType) return false;
+                        if (excelPerfFilters.startDate && r.completedDate && r.completedDate < excelPerfFilters.startDate) return false;
+                        if (excelPerfFilters.endDate && r.completedDate && r.completedDate > excelPerfFilters.endDate) return false;
+                        return true;
+                    });
+                });
+
+                const excelPerfEffectiveBaseRegion = computed(() => {
+                    if (excelPerfBaseRegion.value !== 'auto') return excelPerfBaseRegion.value;
+                    const counts = { '南區': 0, '中區': 0, '北區': 0 };
+                    excelPerfFilteredRecords.value.forEach(r => {
+                        const reg = inferRegionFromCity(r.city);
+                        counts[reg] = (counts[reg] || 0) + 1;
+                    });
+                    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '南區';
+                });
+
+                // 核心：按 (完修日期 + 工程師) 分組並依開工時間串聯當日路徑，算出每段公里數與里程基數
+                const excelPerfComputedPack = computed(() => {
+                    // 依賴 excelPerfGeoRefinedCount 讓精準校正完成時自動重算
+                    const _trigger = excelPerfGeoRefinedCount.value;
+                    const recs = excelPerfFilteredRecords.value;
+                    const mode = excelPerfDistanceMode.value;
+                    const globalRegionPref = excelPerfBaseRegion.value;
+
+                    // 先為每位工程師判斷歸屬分區
+                    const engRegionMap = {};
+                    const engCityVotes = {};
+                    recs.forEach(r => {
+                        if (!engCityVotes[r.engineer]) engCityVotes[r.engineer] = { '南區': 0, '中區': 0, '北區': 0 };
+                        const reg = inferRegionFromCity(r.city);
+                        engCityVotes[r.engineer][reg] = (engCityVotes[r.engineer][reg] || 0) + 1;
+                    });
+                    Object.keys(engCityVotes).forEach(eng => {
+                        if (globalRegionPref !== 'auto') {
+                            engRegionMap[eng] = globalRegionPref;
+                        } else {
+                            engRegionMap[eng] = Object.entries(engCityVotes[eng]).sort((a, b) => b[1] - a[1])[0]?.[0] || '南區';
+                        }
+                    });
+
+                    // 分組 (date + engineer)
+                    const dayGroupsMap = {};
+                    recs.forEach(r => {
+                        const key = `${r.completedDate}__${r.engineer}`;
+                        if (!dayGroupsMap[key]) {
+                            dayGroupsMap[key] = { key, date: r.completedDate, engineer: r.engineer, items: [] };
+                        }
+                        dayGroupsMap[key].items.push(r);
+                    });
+
+                    const dailyRoutes = [];
+                    const enrichedList = [];
+
+                    Object.values(dayGroupsMap)
+                        .sort((a, b) => a.date.localeCompare(b.date) || a.engineer.localeCompare(b.engineer))
+                        .forEach(g => {
+                            const sorted = [...g.items].sort((a, b) => a.startMin - b.startMin);
+                            const baseReg = engRegionMap[g.engineer] || '南區';
+                            const baseInfo = TW_BASE_COORDS[baseReg] || TW_BASE_COORDS['南區'];
+
+                            let dayDist = 0;
+                            let dayMins = 0;
+                            let dayBasePoints = 0;
+                            let startLegKm = 0;
+                            let returnLegKm = 0;
+                            const cities = new Set();
+                            let prevCoord = null;
+                            let prevAddr = '';
+
+                            const stops = sorted.map((item, idx) => {
+                                const coord = resolveTaiwanCoords(item.city, item.address);
+                                const mBase = lookupMileageBase(baseReg, item.city, item.address);
+                                if (item.city && item.city !== '未填') cities.add(item.city);
+
+                                let legFromPrevKm = 0;
+                                if (idx === 0) {
+                                    if (mode === 'round-trip' && coord) {
+                                        startLegKm = haversineRoadKm(baseInfo, coord, baseInfo.name, item.address);
+                                        dayDist += startLegKm;
+                                    }
+                                } else if (prevCoord && coord) {
+                                    legFromPrevKm = haversineRoadKm(prevCoord, coord, prevAddr, item.address);
+                                    dayDist += legFromPrevKm;
+                                }
+
+                                if (coord) {
+                                    prevCoord = coord;
+                                    prevAddr = item.address;
+                                }
+
+                                dayMins += item.durationMinutes;
+                                dayBasePoints += mBase;
+
+                                const enriched = {
+                                    ...item,
+                                    coord,
+                                    district: coord ? (coord.district || '') : '',
+                                    mileageBase: mBase,
+                                    baseRegion: baseReg,
+                                    legFromPrevKm,
+                                    isFirstStopOfDay: idx === 0
+                                };
+                                enrichedList.push(enriched);
+                                return enriched;
+                            });
+
+                            if (mode === 'round-trip' && prevCoord) {
+                                returnLegKm = haversineRoadKm(prevCoord, baseInfo, prevAddr, baseInfo.name);
+                                dayDist += returnLegKm;
+                            }
+
+                            dailyRoutes.push({
+                                key: g.key,
+                                date: g.date,
+                                engineer: g.engineer,
+                                baseRegion: baseReg,
+                                baseName: baseInfo.name,
+                                startLegKm: Number(startLegKm.toFixed(1)),
+                                returnLegKm: Number(returnLegKm.toFixed(1)),
+                                totalDistanceKm: Number(dayDist.toFixed(1)),
+                                totalMinutes: dayMins,
+                                totalHoursText: formatDurationZh(dayMins),
+                                totalBasePoints: Number(dayBasePoints.toFixed(1)),
+                                crossCity: cities.size >= 2,
+                                stops
+                            });
+                        });
+
+                    return { dailyRoutes, enrichedList, engRegionMap };
+                });
+
+                const excelPerfDailyRoutes = computed(() => excelPerfComputedPack.value.dailyRoutes);
+                const excelPerfEnrichedRecords = computed(() => excelPerfComputedPack.value.enrichedList);
+
+                const excelPerfSummary = computed(() => {
+                    const recs = excelPerfEnrichedRecords.value;
+                    const routes = excelPerfDailyRoutes.value;
+                    const totalCases = recs.length;
+                    const totalMins = recs.reduce((s, r) => s + r.durationMinutes, 0);
+                    const totalDist = routes.reduce((s, d) => s + d.totalDistanceKm, 0);
+                    const totalBase = recs.reduce((s, r) => s + r.mileageBase, 0);
+                    const uniqueDates = [...new Set(recs.map(r => r.completedDate))].sort();
+                    const activeDays = routes.length || 1;
+                    const engCount = new Set(recs.map(r => r.engineer)).size;
+
+                    const typeCounts = {};
+                    recs.forEach(r => { typeCounts[r.repairType || '叫修'] = (typeCounts[r.repairType || '叫修'] || 0) + 1; });
+                    const typeBreakdownText = Object.entries(typeCounts).map(([k, v]) => `${k} ${v}`).join(' / ') || '-';
+
+                    let maxCaseMinutes = 0;
+                    recs.forEach(r => { if (r.durationMinutes > maxCaseMinutes) maxCaseMinutes = r.durationMinutes; });
+
+                    // 找出最辛苦的一天 (依路程 + 工時綜合)
+                    let busiest = null;
+                    routes.forEach(d => {
+                        const score = d.totalDistanceKm + d.totalMinutes / 3;
+                        if (!busiest || score > busiest._score) busiest = { ...d, _score: score };
+                    });
+
+                    return {
+                        totalCases,
+                        engineerCount: engCount,
+                        typeBreakdownText,
+                        totalHoursText: formatDurationZh(totalMins),
+                        avgMinutesPerCase: totalCases > 0 ? Math.round(totalMins / totalCases) : 0,
+                        totalDistanceKm: Number(totalDist.toFixed(1)),
+                        avgDistancePerDay: routes.length > 0 ? Number((totalDist / routes.length).toFixed(1)) : 0,
+                        totalBasePoints: Number(totalBase.toFixed(1)),
+                        avgBasePerCase: totalCases > 0 ? Number((totalBase / totalCases).toFixed(2)) : 0,
+                        activeDays: uniqueDates.length,
+                        avgCasesPerDay: routes.length > 0 ? Number((totalCases / routes.length).toFixed(1)) : 0,
+                        avgHoursPerDay: routes.length > 0 ? Number((totalMins / 60 / routes.length).toFixed(1)) : 0,
+                        maxCaseMinutes,
+                        dateRangeText: uniqueDates.length > 0 ? `${uniqueDates[0]} ~ ${uniqueDates[uniqueDates.length - 1]}` : '-',
+                        busiestDayLabel: busiest ? `${busiest.date} (${busiest.engineer})` : '-',
+                        busiestDayDetail: busiest ? `${busiest.stops.length}件 · ${busiest.totalHoursText} · ${busiest.totalDistanceKm} km` : '-'
+                    };
+                });
+
+                const excelPerfDurationBuckets = computed(() => {
+                    const b = [
+                        { label: '30分以內', count: 0, color: '#10B981' },
+                        { label: '31~60分', count: 0, color: '#009CE0' },
+                        { label: '61~120分', count: 0, color: '#6366F1' },
+                        { label: '2小時以上', count: 0, color: '#EE3B2B' }
+                    ];
+                    excelPerfEnrichedRecords.value.forEach(r => {
+                        if (r.durationMinutes <= 30) b[0].count++;
+                        else if (r.durationMinutes <= 60) b[1].count++;
+                        else if (r.durationMinutes <= 120) b[2].count++;
+                        else b[3].count++;
+                    });
+                    return b;
+                });
+
+                const excelPerfEngineerSummaryRows = computed(() => {
+                    const routes = excelPerfDailyRoutes.value;
+                    const map = {};
+                    routes.forEach(d => {
+                        if (!map[d.engineer]) {
+                            map[d.engineer] = {
+                                engineer: d.engineer,
+                                baseRegion: d.baseRegion,
+                                activeDays: 0,
+                                totalCases: 0,
+                                totalMinutes: 0,
+                                totalDistanceKm: 0,
+                                totalBasePoints: 0
+                            };
+                        }
+                        const row = map[d.engineer];
+                        row.activeDays += 1;
+                        row.totalCases += d.stops.length;
+                        row.totalMinutes += d.totalMinutes;
+                        row.totalDistanceKm += d.totalDistanceKm;
+                        row.totalBasePoints += d.totalBasePoints;
+                    });
+                    return Object.values(map).map(r => ({
+                        ...r,
+                        avgCasesPerDay: r.activeDays > 0 ? Number((r.totalCases / r.activeDays).toFixed(1)) : 0,
+                        totalHoursText: formatDurationZh(r.totalMinutes),
+                        totalHoursNum: Number((r.totalMinutes / 60).toFixed(1)),
+                        avgMinutesPerCase: r.totalCases > 0 ? Math.round(r.totalMinutes / r.totalCases) : 0,
+                        totalDistanceKm: Number(r.totalDistanceKm.toFixed(1)),
+                        avgDistancePerDay: r.activeDays > 0 ? Number((r.totalDistanceKm / r.activeDays).toFixed(1)) : 0,
+                        totalBasePoints: Number(r.totalBasePoints.toFixed(1))
+                    })).sort((a, b) => b.totalCases - a.totalCases || b.totalMinutes - a.totalMinutes);
+                });
+
+                // 選配：免費 OpenStreetMap Nominatim 門牌精準座標校正
+                const refineExcelPerfRealRoad = async () => {
+                    if (excelPerfGeoRefining.value) return;
+                    const uniqueAddrs = [];
+                    const seen = new Set();
+                    excelPerfFilteredRecords.value.forEach(r => {
+                        if (!r.address) return;
+                        const fullKey = `${r.city}|${r.address}`;
+                        if (!seen.has(fullKey) && !excelPerfGeoCache[fullKey]) {
+                            seen.add(fullKey);
+                            uniqueAddrs.push({ fullKey, city: r.city, address: r.address });
+                        }
+                    });
+                    if (uniqueAddrs.length === 0) {
+                        excelPerfNotice.value = '目前篩選案件之詳細地址皆已完成門牌精準定位快取！';
+                        excelPerfGeoRefinedCount.value++;
+                        return;
+                    }
+                    excelPerfGeoRefining.value = true;
+                    let okCount = 0;
+                    try {
+                        for (let i = 0; i < uniqueAddrs.length; i++) {
+                            const item = uniqueAddrs[i];
+                            excelPerfGeoStatusText.value = `定位校正 (${i + 1}/${uniqueAddrs.length})`;
+                            // 清除樓層與括號附註以提升地理編碼命中率
+                            const cleanAddr = item.address.replace(/\(.*?\)|（.*?）/g, '').replace(/[B\d]+樓.*$/i, '').trim();
+                            const query = encodeURIComponent(`台灣 ${item.city} ${cleanAddr}`);
+                            try {
+                                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&q=${query}`);
+                                if (resp.ok) {
+                                    const arr = await resp.json();
+                                    if (Array.isArray(arr) && arr.length > 0) {
+                                        const lat = parseFloat(arr[0].lat);
+                                        const lng = parseFloat(arr[0].lon);
+                                        if (!isNaN(lat) && !isNaN(lng)) {
+                                            const baseRes = resolveTaiwanCoords(item.city, item.address);
+                                            excelPerfGeoCache[item.fullKey] = { lat, lng, district: baseRes ? baseRes.district : '' };
+                                            okCount++;
+                                        }
+                                    }
+                                }
+                            } catch (e) { /* 單筆網路失敗自動略過保留行政區估算 */ }
+                            if (i < uniqueAddrs.length - 1) {
+                                await new Promise(r => setTimeout(r, 1100));
+                            }
+                        }
+                        try { localStorage.setItem(EXCEL_GEO_CACHE_KEY, JSON.stringify(excelPerfGeoCache)); } catch (e) {}
+                        excelPerfGeoRefinedCount.value = Object.keys(excelPerfGeoCache).length;
+                        excelPerfNotice.value = `門牌路網精準校正完成！本次成功精準定位 ${okCount} / ${uniqueAddrs.length} 個地址，並已自動更新所有路程圖表。`;
+                    } finally {
+                        excelPerfGeoRefining.value = false;
+                        excelPerfGeoStatusText.value = '地址路網精準校正';
+                    }
+                };
+
+                // 6 組 Chart.js 老闆績效評估圖表渲染引擎
+                const excelPerfCharts = {};
+                const destroyExcelPerfChart = (key) => {
+                    if (excelPerfCharts[key]) {
+                        try { excelPerfCharts[key].destroy(); } catch (e) {}
+                        delete excelPerfCharts[key];
+                    }
+                };
+
+                const renderExcelPerfCharts = () => {
+                    if (!window.Chart || activeView.value !== 'excelPerf' || excelPerfFilteredRecords.value.length === 0) return;
+
+                    // 彙總每日數值 (跨多人時合併同一日)
+                    const dailyAggMap = {};
+                    excelPerfDailyRoutes.value.forEach(d => {
+                        if (!dailyAggMap[d.date]) {
+                            dailyAggMap[d.date] = { date: d.date, hours: 0, distanceKm: 0, cases: 0 };
+                        }
+                        dailyAggMap[d.date].hours += d.totalMinutes / 60;
+                        dailyAggMap[d.date].distanceKm += d.totalDistanceKm;
+                        dailyAggMap[d.date].cases += d.stops.length;
+                    });
+                    const dailySeries = Object.values(dailyAggMap).sort((a, b) => a.date.localeCompare(b.date));
+                    const dailyLabels = dailySeries.map(d => d.date.slice(5)); // MM-DD
+
+                    // Chart 1: 每日維修工時(小時) vs 行車路程(km)
+                    const el1 = document.getElementById('excelPerfDailyTrendChart');
+                    if (el1) {
+                        destroyExcelPerfChart('c1');
+                        excelPerfCharts.c1 = new window.Chart(el1, {
+                            type: 'bar',
+                            data: {
+                                labels: dailyLabels,
+                                datasets: [
+                                    {
+                                        type: 'bar',
+                                        label: '現場維修工時 (小時)',
+                                        data: dailySeries.map(d => Number(d.hours.toFixed(2))),
+                                        backgroundColor: 'rgba(19, 35, 86, 0.85)',
+                                        borderRadius: 6,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        type: 'line',
+                                        label: '當日行車路程 (km)',
+                                        data: dailySeries.map(d => Number(d.distanceKm.toFixed(1))),
+                                        borderColor: '#009CE0',
+                                        backgroundColor: 'rgba(0, 156, 224, 0.14)',
+                                        borderWidth: 3,
+                                        pointRadius: 4,
+                                        pointBackgroundColor: '#009CE0',
+                                        tension: 0.25,
+                                        fill: true,
+                                        yAxisID: 'y1'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: { legend: { position: 'top' } },
+                                scales: {
+                                    y: { beginAtZero: true, title: { display: true, text: '維修工時 (小時)' } },
+                                    y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '行車路程 (km)' } }
+                                }
+                            }
+                        });
+                    }
+
+                    // Chart 2: 每日處理案件數 vs 跑車公里數
+                    const el2 = document.getElementById('excelPerfDailyCountDistChart');
+                    if (el2) {
+                        destroyExcelPerfChart('c2');
+                        excelPerfCharts.c2 = new window.Chart(el2, {
+                            type: 'bar',
+                            data: {
+                                labels: dailyLabels,
+                                datasets: [
+                                    {
+                                        type: 'bar',
+                                        label: '當日處理案件數 (件)',
+                                        data: dailySeries.map(d => d.cases),
+                                        backgroundColor: 'rgba(16, 185, 129, 0.82)',
+                                        borderRadius: 6,
+                                        yAxisID: 'y'
+                                    },
+                                    {
+                                        type: 'line',
+                                        label: '當日跑車距離 (km)',
+                                        data: dailySeries.map(d => Number(d.distanceKm.toFixed(1))),
+                                        borderColor: '#EE3B2B',
+                                        backgroundColor: 'rgba(238, 59, 43, 0.1)',
+                                        borderWidth: 2.8,
+                                        pointRadius: 4,
+                                        pointBackgroundColor: '#EE3B2B',
+                                        tension: 0.25,
+                                        yAxisID: 'y1'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: { legend: { position: 'top' } },
+                                scales: {
+                                    y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: '案件數 (件)' } },
+                                    y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '跑車距離 (km)' } }
+                                }
+                            }
+                        });
+                    }
+
+                    // Chart 3: 每筆維修案件耗時排行 (前 15 筆水平長條圖)
+                    const el3 = document.getElementById('excelPerfCaseDurationChart');
+                    if (el3) {
+                        destroyExcelPerfChart('c3');
+                        const topCases = [...excelPerfEnrichedRecords.value]
+                            .sort((a, b) => b.durationMinutes - a.durationMinutes)
+                            .slice(0, 15);
+                        excelPerfCharts.c3 = new window.Chart(el3, {
+                            type: 'bar',
+                            data: {
+                                labels: topCases.map(c => `${c.completedDate.slice(5)} ${c.customer.slice(0, 9)} (${c.repairType})`),
+                                datasets: [{
+                                    label: '實際維修耗時 (分鐘)',
+                                    data: topCases.map(c => c.durationMinutes),
+                                    backgroundColor: topCases.map(c => c.repairType === '交機' ? '#F59E0B' : (c.durationMinutes >= 120 ? '#EE3B2B' : '#009CE0')),
+                                    borderRadius: 6
+                                }]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: (ctx) => {
+                                                const rec = topCases[ctx.dataIndex];
+                                                return `耗時 ${rec.durationMinutes} 分鐘 (${rec.timeRangeText}) · ${rec.engineer}`;
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: { x: { beginAtZero: true, title: { display: true, text: '分鐘' } } }
+                            }
+                        });
+                    }
+
+                    // Chart 4: 維修耗時區間甜甜圈圖
+                    const el4 = document.getElementById('excelPerfDurationBucketChart');
+                    if (el4) {
+                        destroyExcelPerfChart('c4');
+                        const buckets = excelPerfDurationBuckets.value;
+                        excelPerfCharts.c4 = new window.Chart(el4, {
+                            type: 'doughnut',
+                            data: {
+                                labels: buckets.map(b => b.label),
+                                datasets: [{
+                                    data: buckets.map(b => b.count),
+                                    backgroundColor: buckets.map(b => b.color),
+                                    borderWidth: 2,
+                                    borderColor: '#ffffff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '62%',
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+
+                    // Chart 5: 多工程師綜合評比 / 單人地區出勤分佈
+                    const el5 = document.getElementById('excelPerfEngineerCompareChart');
+                    if (el5) {
+                        destroyExcelPerfChart('c5');
+                        const rows = excelPerfEngineerSummaryRows.value;
+                        if (rows.length > 1) {
+                            excelPerfCharts.c5 = new window.Chart(el5, {
+                                type: 'bar',
+                                data: {
+                                    labels: rows.map(r => r.engineer),
+                                    datasets: [
+                                        { label: '總案件數 (件)', data: rows.map(r => r.totalCases), backgroundColor: '#132356', borderRadius: 5 },
+                                        { label: '總維修工時 (小時)', data: rows.map(r => r.totalHoursNum), backgroundColor: '#009CE0', borderRadius: 5 },
+                                        { label: '預估路程 (×10 km)', data: rows.map(r => Number((r.totalDistanceKm / 10).toFixed(1))), backgroundColor: '#10B981', borderRadius: 5 },
+                                        { label: '里程基數總分', data: rows.map(r => r.totalBasePoints), backgroundColor: '#F59E0B', borderRadius: 5 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'top' } },
+                                    scales: { y: { beginAtZero: true } }
+                                }
+                            });
+                        } else {
+                            const areaMap = {};
+                            excelPerfEnrichedRecords.value.forEach(r => {
+                                const lbl = r.district ? `${r.city}·${r.district}` : r.city;
+                                if (!areaMap[lbl]) areaMap[lbl] = { count: 0, base: 0 };
+                                areaMap[lbl].count += 1;
+                                areaMap[lbl].base += r.mileageBase;
+                            });
+                            const sortedAreas = Object.entries(areaMap).sort((a, b) => b[1].count - a[1].count);
+                            excelPerfCharts.c5 = new window.Chart(el5, {
+                                type: 'bar',
+                                data: {
+                                    labels: sortedAreas.map(x => x[0]),
+                                    datasets: [
+                                        { label: '案件數 (件)', data: sortedAreas.map(x => x[1].count), backgroundColor: '#132356', borderRadius: 6 },
+                                        { label: '累積里程基數', data: sortedAreas.map(x => Number(x[1].base.toFixed(1))), backgroundColor: '#F59E0B', borderRadius: 6 }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'top' } },
+                                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                                }
+                            });
+                        }
+                    }
+
+                    // Chart 6: 設備機型累積維修工時排行 (前 8 大)
+                    const el6 = document.getElementById('excelPerfModelChart');
+                    if (el6) {
+                        destroyExcelPerfChart('c6');
+                        const modelMins = {};
+                        excelPerfEnrichedRecords.value.forEach(r => {
+                            const m = (r.modelName || r.partCode || '未填寫').slice(0, 18);
+                            modelMins[m] = (modelMins[m] || 0) + r.durationMinutes;
+                        });
+                        const topModels = Object.entries(modelMins).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                        excelPerfCharts.c6 = new window.Chart(el6, {
+                            type: 'bar',
+                            data: {
+                                labels: topModels.map(x => x[0]),
+                                datasets: [{
+                                    label: '累積維修耗時 (分鐘)',
+                                    data: topModels.map(x => x[1]),
+                                    backgroundColor: '#7C3AED',
+                                    borderRadius: 6
+                                }]
+                            },
+                            options: {
+                                indexAxis: 'y',
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: { x: { beginAtZero: true, title: { display: true, text: '分鐘' } } }
+                            }
+                        });
+                    }
+                };
+
+                watch([
+                    activeView, excelPerfRawRecords,
+                    () => excelPerfFilters.engineer,
+                    () => excelPerfFilters.repairType,
+                    () => excelPerfFilters.startDate,
+                    () => excelPerfFilters.endDate,
+                    excelPerfDistanceMode, excelPerfBaseRegion, excelPerfGeoRefinedCount
+                ], () => {
+                    if (activeView.value === 'excelPerf' && excelPerfFilteredRecords.value.length > 0) {
+                        nextTick(() => renderExcelPerfCharts());
+                    }
+                });
+
+                // 一鍵下載高質感多頁 A4 老闆評估報告 PDF (逐區塊智慧分頁，絕不裁切圖表)
+                const exportExcelPerfPDF = async () => {
+                    if (isExportingExcelPerfPDF.value) return;
+                    if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+                        alert('PDF 匯出元件尚未載入完成，請重新整理後再試。');
+                        return;
+                    }
+                    isExportingExcelPerfPDF.value = true;
+                    excelPerfPdfProgressText.value = '準備排版...';
+                    try {
+                        const root = document.getElementById('excel-perf-report-root');
+                        if (!root) return;
+
+                        // 依序收集不應被跨頁裁切的邏輯區塊
+                        const blocks = [];
+                        const topSections = root.querySelectorAll(':scope > [data-pdf-section]');
+                        topSections.forEach(sec => {
+                            const key = sec.getAttribute('data-pdf-section');
+                            if (key === 'daily-routes-header') {
+                                // 每日行程改為標題 + 逐張路線卡片擷取，徹底防止單日路線卡片被腰斬
+                                const cards = sec.querySelectorAll('[data-pdf-route-card="true"]');
+                                if (cards.length > 0) {
+                                    cards.forEach(c => blocks.push(c));
+                                } else {
+                                    blocks.push(sec);
+                                }
+                            } else {
+                                blocks.push(sec);
+                            }
+                        });
+
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                        const pageW = 210;
+                        const pageH = 297;
+                        const marginX = 9;
+                        const marginTop = 9;
+                        const marginBottom = 12;
+                        const contentW = pageW - marginX * 2;
+                        const maxY = pageH - marginBottom;
+
+                        let curY = marginTop;
+
+                        for (let i = 0; i < blocks.length; i++) {
+                            excelPerfPdfProgressText.value = `擷取區塊 (${i + 1}/${blocks.length})...`;
+                            const el = blocks[i];
+                            const canvas = await window.html2canvas(el, {
+                                scale: 2,
+                                useCORS: true,
+                                backgroundColor: '#ffffff',
+                                logging: false,
+                                onclone: (doc) => {
+                                    doc.querySelectorAll('.truncate').forEach(node => {
+                                        node.style.overflow = 'visible';
+                                        node.style.whiteSpace = 'normal';
+                                        node.style.lineHeight = '1.45';
+                                    });
+                                }
+                            });
+
+                            const imgData = canvas.toDataURL('image/png');
+                            const imgH = (canvas.height * contentW) / canvas.width;
+
+                            // 若單一區塊高度超過一整頁可用高度（例如很長的明細表），則進行智慧垂直切片
+                            const usableH = maxY - marginTop;
+                            if (imgH > usableH) {
+                                if (curY > marginTop + 5) {
+                                    pdf.addPage();
+                                    curY = marginTop;
+                                }
+                                const pxPerMm = canvas.width / contentW;
+                                const sliceHeightPx = Math.floor(usableH * pxPerMm);
+                                let offsetPx = 0;
+                                while (offsetPx < canvas.height) {
+                                    const thisSlicePx = Math.min(sliceHeightPx, canvas.height - offsetPx);
+                                    const sliceCanvas = document.createElement('canvas');
+                                    sliceCanvas.width = canvas.width;
+                                    sliceCanvas.height = thisSlicePx;
+                                    const ctx = sliceCanvas.getContext('2d');
+                                    ctx.fillStyle = '#ffffff';
+                                    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                                    ctx.drawImage(canvas, 0, offsetPx, canvas.width, thisSlicePx, 0, 0, canvas.width, thisSlicePx);
+                                    const sliceH = (thisSlicePx * contentW) / canvas.width;
+                                    pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', marginX, curY, contentW, sliceH, undefined, 'FAST');
+                                    offsetPx += thisSlicePx;
+                                    if (offsetPx < canvas.height) {
+                                        pdf.addPage();
+                                        curY = marginTop;
+                                    } else {
+                                        curY += sliceH + 4;
+                                    }
+                                }
+                            } else {
+                                if (curY + imgH > maxY) {
+                                    pdf.addPage();
+                                    curY = marginTop;
+                                }
+                                pdf.addImage(imgData, 'PNG', marginX, curY, contentW, imgH, undefined, 'FAST');
+                                curY += imgH + 4;
+                            }
+                        }
+
+                        // 為每一頁加上品牌頁尾頁碼 (英文/數字避免 jsPDF 預設字型亂碼)
+                        const totalPages = pdf.internal.getNumberOfPages();
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        for (let p = 1; p <= totalPages; p++) {
+                            pdf.setPage(p);
+                            pdf.setDrawColor(226, 232, 240);
+                            pdf.line(marginX, pageH - 9, pageW - marginX, pageH - 9);
+                            pdf.setFontSize(8);
+                            pdf.setTextColor(100, 116, 139);
+                            pdf.text(`Inno Repair Performance Analytics Report  |  Generated: ${todayStr}`, marginX, pageH - 4.5);
+                            pdf.text(`Page ${p} / ${totalPages}`, pageW - marginX, pageH - 4.5, { align: 'right' });
+                        }
+
+                        const engTag = excelPerfFilters.engineer === 'all' ? '全體工程師' : excelPerfFilters.engineer;
+                        const fileName = `工程師績效分析報告_${engTag}_${todayStr}.pdf`;
+                        pdf.save(fileName);
+                        excelPerfNotice.value = `✅ 已成功產生並下載 ${totalPages} 頁 A4 PDF 報告：${fileName}`;
+                    } catch (err) {
+                        console.error('PDF export error:', err);
+                        excelPerfError.value = 'PDF 產生失敗：' + (err.message || err);
+                    } finally {
+                        isExportingExcelPerfPDF.value = false;
+                        excelPerfPdfProgressText.value = '下載 PDF 報告';
+                    }
+                };
+
                 return {
                     statuses, engineers, tickets, formData, getTickets, getStatusColor, normalizeStatus, handleDateAndStatus,
                     isOverdue, onDragStart, onDrop, handleAddTicket, unassignedTickets,
@@ -4652,6 +6484,15 @@ window.onerror = function(msg, url, line, col, error) {
                     analyticsPreset, analyticsEngineer, analyticsRange, analyticsSortKey, analyticsSortDir,
                     setAnalyticsPreset, openAnalyticsPage, toggleAnalyticsEngineer, sortAnalyticsTable, jumpToHistoryWithCustomer,
                     analyticsTickets, analyticsRangeDays, analyticsKPI, engineerPerformanceRows, repeatRepairHotspots, exportAnalyticsCSV,
+                    showExcelPerfAuthModal, isExcelPerfAuthenticated, excelPerfPasswordInput, showExcelPerfPwd, excelPerfAuthError,
+                    openExcelPerfPage, closeExcelPerfAuthModal, verifyExcelPerfPassword, lockExcelPerfPage,
+                    excelPerfFileName, excelPerfRawRecords, excelPerfError, excelPerfNotice, isExcelPerfDragging,
+                    excelPerfDistanceMode, excelPerfBaseRegion, excelPerfFilters, excelPerfEngineerList, excelPerfTypeList,
+                    excelPerfFilteredRecords, excelPerfEffectiveBaseRegion, excelPerfDailyRoutes, excelPerfEnrichedRecords,
+                    excelPerfSummary, excelPerfDurationBuckets, excelPerfEngineerSummaryRows,
+                    triggerExcelPerfUpload, handleExcelPerfFileChange, handleExcelPerfDrop, resetExcelPerfFilters,
+                    excelPerfGeoRefining, excelPerfGeoStatusText, excelPerfGeoRefinedCount, refineExcelPerfRealRoad,
+                    isExportingExcelPerfPDF, excelPerfPdfProgressText, exportExcelPerfPDF,
                     fetchData, quotingTickets, quoteStats, changeQuoteState,
                     quotePageFilter, quoteSearchQuery, quoteEngineerFilter, filteredQuotingTickets,
                     uploadingQuoteTicketId, triggerQuoteFileUpload, handleDirectQuoteUpload, removeQuoteAttachment,
